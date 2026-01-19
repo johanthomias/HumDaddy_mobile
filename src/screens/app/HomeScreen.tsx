@@ -65,26 +65,32 @@ export default function HomeScreen() {
     }
   };
 
-const handleVerifyIdentity = async () => {
-  try {
-    setStripeLoading(true);
+  const handleOpenPublicPage = async () => {
+    if (!user?.username) return;
+    await WebBrowser.openBrowserAsync(publicLink);
+  };
 
-    await stripeConnectApi.createAccount();
-    const { url } = await stripeConnectApi.createAccountLink('mobile');
 
-    // Ouvre Stripe onboarding
-    const result = await WebBrowser.openBrowserAsync(url);
+  const handleVerifyIdentity = async () => {
+    try {
+      setStripeLoading(true);
 
-    // result.type = "opened" | "cancel" | "dismiss"
-    // Ne navigate pas automatiquement : attends un vrai retour (deep link) OU laisse l'utilisateur revenir.
-  } catch (error: unknown) {
-    console.error('Error starting Stripe onboarding:', error);
-    const message = error instanceof Error ? error.message : 'Une erreur est survenue';
-    Alert.alert('Erreur', message, [{ text: 'OK' }]);
-  } finally {
-    setStripeLoading(false);
-  }
-};
+      await stripeConnectApi.createAccount();
+      const { url } = await stripeConnectApi.createAccountLink('mobile');
+
+      // Ouvre Stripe onboarding
+      const result = await WebBrowser.openBrowserAsync(url);
+
+      // result.type = "opened" | "cancel" | "dismiss"
+      // Ne navigate pas automatiquement : attends un vrai retour (deep link) OU laisse l'utilisateur revenir.
+    } catch (error: unknown) {
+      console.error('Error starting Stripe onboarding:', error);
+      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
+      Alert.alert('Erreur', message, [{ text: 'OK' }]);
+    } finally {
+      setStripeLoading(false);
+    }
+  };
 
   const handleOpenGiftModal = () => {
     setGiftModalVisible(true);
@@ -143,17 +149,57 @@ const handleVerifyIdentity = async () => {
         showsVerticalScrollIndicator={false}
       >
         {/* Welcome section */}
-        <View style={styles.welcomeSection}>
-          <Text style={styles.welcomeText}>
-            Bienvenue, {user?.publicName || 'Créateur'}
-          </Text>
-          <Pressable style={styles.linkRow} onPress={handleCopyLink}>
-            <Text style={styles.linkText} numberOfLines={1}>
-              {publicLink}
-            </Text>
-            <Text style={styles.copyIcon}>{copiedLink ? '✓' : '📋'}</Text>
-          </Pressable>
-        </View>
+<View style={styles.welcomeSection}>
+  <Text style={styles.welcomeText}>
+    Bienvenue, {user?.publicName || 'Créateur'}
+  </Text>
+
+  <View style={styles.linkLine}>
+    <Pressable
+      style={styles.linkRow}
+      onPress={handleCopyLink}
+      disabled={!user?.username}
+    >
+      <Text
+        style={[
+          styles.linkText,
+          !user?.username && styles.linkTextDisabled,
+        ]}
+        numberOfLines={1}
+      >
+        {publicLink}
+      </Text>
+      {user?.username ? (
+        <Text style={styles.copyIcon}>{copiedLink ? '✓' : '📋'}</Text>
+      ) : null}
+    </Pressable>
+
+    <Pressable
+      style={[
+        styles.publicPageButton,
+        !user?.username && styles.publicPageButtonDisabled,
+      ]}
+      onPress={handleOpenPublicPage}
+      disabled={!user?.username}
+    >
+      <Text
+        style={[
+          styles.publicPageButtonText,
+          !user?.username && styles.publicPageButtonTextDisabled,
+        ]}
+      >
+       Voir 👀
+      </Text>
+    </Pressable>
+  </View>
+
+  {!user?.username ? (
+    <Text style={styles.noteText}>
+      Configure ton pseudo pour activer ta page publique.
+    </Text>
+  ) : null}
+</View>
+
 
         {/* Identity verification card (conditional) */}
         {needsIdentityVerification && (
@@ -185,7 +231,7 @@ const handleVerifyIdentity = async () => {
           onCreateGift={handleOpenGiftModal}
           // onCreatorFlow={handleCreatorFlow}
           onCreateWishlist={handleCreateWishlist}
-          // onImportThrone={handleImportThrone}
+        // onImportThrone={handleImportThrone}
         />
 
         {/* Recent gifts */}
@@ -411,4 +457,41 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: '500',
   },
+  publicPageButton: {
+    marginLeft: 'auto',
+    alignSelf: 'flex-start',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  publicPageButtonText: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  noteText: {
+    marginTop: 8,
+    fontSize: 12,
+    color: colors.muted,
+  },
+linkLine: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  gap: 10,
+},
+
+linkTextDisabled: {
+  opacity: 0.6,
+},
+
+publicPageButtonDisabled: {
+  opacity: 0.4,
+},
+
+publicPageButtonTextDisabled: {
+  color: colors.muted,
+},
 });
