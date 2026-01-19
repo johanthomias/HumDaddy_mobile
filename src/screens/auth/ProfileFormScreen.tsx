@@ -17,7 +17,7 @@ import { colors } from '../../theme/colors';
 type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileForm'>;
 
 export default function ProfileFormScreen({ navigation, route }: Props) {
-  const { accessToken } = route.params || {};
+  const { prefilledUsername } = route.params || {};
 
   const [publicName, setPublicName] = useState('');
   const [is18Plus, setIs18Plus] = useState(false);
@@ -31,9 +31,9 @@ export default function ProfileFormScreen({ navigation, route }: Props) {
 
     // Passer les données au prochain écran
     navigation.navigate('ProfileCustomize', {
-      accessToken,
       publicName: publicName.trim(),
       is18Plus,
+      prefilledUsername,
     });
   };
 

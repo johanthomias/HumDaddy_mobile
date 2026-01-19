@@ -10,13 +10,22 @@ export default function LoginScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Se connecter</Text>
-      <Text style={styles.subtitle}>Placeholder - Écran de connexion</Text>
+      <Text style={styles.subtitle}>
+        Entrez votre numéro et recevez un code par SMS
+      </Text>
 
       <Pressable
         style={styles.button}
+        onPress={() => navigation.replace('PhoneOtp', { mode: 'login' })}
+      >
+        <Text style={styles.buttonText}>Continuer</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.linkButton}
         onPress={() => navigation.goBack()}
       >
-        <Text style={styles.buttonText}>Retour</Text>
+        <Text style={styles.linkText}>Retour</Text>
       </Pressable>
     </View>
   );
@@ -55,5 +64,14 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontSize: 16,
     fontWeight: '600',
+  },
+  linkButton: {
+    marginTop: 20,
+    padding: 10,
+  },
+  linkText: {
+    color: colors.muted,
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
 });

@@ -6,7 +6,7 @@
 **Framework**: Expo SDK 54 + React Native 0.81.5
 **Langage**: TypeScript
 **Styling**: React Native StyleSheet (PAS de Tailwind/NativeWind)
-**État**: Étape 7 - Upload Avatar + Banner
+**État**: Étape 13 - Wallet (Solde + Retraits) + Stripe Return Web → Deeplink Mobile
 
 ---
 
@@ -19,11 +19,14 @@ mobile-app/
 ├── README.md                        # Documentation du projet
 ├── App.tsx                          # Point d'entrée → AuthProvider → RootNavigator
 ├── src/
-│   ├── assets/                      # Fichiers statiques (vide pour l'instant)
+│   ├── assets/                      # Fichiers statiques
+│   │   └── link.png                 # Visuel hero LinkScreen
 │   ├── navigation/
 │   │   ├── AuthStack.tsx           # Stack onboarding (Link → Login → OTP → Form → Customize)
-│   │   ├── AppTabs.tsx             # Tabs app principale (Home + Profile)
-│   │   └── RootNavigator.tsx       # Switch Auth/App basé sur AuthContext
+│   │   ├── AppStack.tsx            # Stack app (Tabs + StripeReturn)
+│   │   ├── AppTabs.tsx             # Tabs app (Home + Wallet + Add + Gifts + Profile) avec icônes
+│   │   ├── GiftStack.tsx           # Stack cadeaux (List → Create → Detail)
+│   │   └── RootNavigator.tsx       # Switch Auth/App + deep linking
 │   ├── screens/
 │   │   ├── auth/
 │   │   │   ├── LinkScreen.tsx      # Écran d'accueil (Créer/Connexion)
@@ -32,8 +35,19 @@ mobile-app/
 │   │   │   ├── ProfileFormScreen.tsx       # Formulaire profil (nom, 18+)
 │   │   │   └── ProfileCustomizeScreen.tsx  # Avatar, banner, username, bio + upload
 │   │   └── app/
-│   │       ├── HomeScreen.tsx      # Placeholder dashboard
-│   │       └── ProfileScreen.tsx   # Bouton déconnexion via AuthContext
+│   │       ├── HomeScreen.tsx      # Dashboard principal + Stripe Connect
+│   │       ├── WalletScreen.tsx    # Wallet: solde + retraits + historique
+│   │       ├── ProfileScreen.tsx   # Profil complet avec édition + auto-save
+│   │       ├── StripeReturnScreen.tsx  # Retour Stripe onboarding
+│   │       └── gifts/
+│   │           ├── GiftsListScreen.tsx       # Liste des cadeaux (grille)
+│   │           ├── CreateGiftPhotosScreen.tsx # Step 1: Sélection photos (max 3)
+│   │           ├── CreateGiftInfoScreen.tsx   # Step 2: Infos (titre, prix, desc, lien)
+│   │           └── GiftDetailScreen.tsx       # Détail cadeau + suppression
+│   ├── components/
+│   │   ├── IdentityVerificationCard.tsx  # Bloc Stripe verification
+│   │   ├── QuickActionsCard.tsx          # Actions rapides
+│   │   └── AddGiftModal.tsx              # Modal choix type cadeau
 │   ├── services/
 │   │   ├── auth/
 │   │   │   ├── AuthContext.tsx     # Context global d'authentification
@@ -45,11 +59,14 @@ mobile-app/
 │   │       ├── httpClient.ts       # Instance Axios avec intercepteurs
 │   │       ├── otpApi.ts           # Service OTP (requestOtp, verifyOtp)
 │   │       ├── userApi.ts          # Service User (getMe, updateMe)
-│   │       └── uploadApi.ts        # Service Upload (avatar, banner)
+│   │       ├── uploadApi.ts        # Service Upload (avatar, banner, gift media)
+│   │       ├── giftApi.ts          # Service Gift (CRUD cadeaux)
+│   │       ├── stripeConnectApi.ts # Service Stripe Connect
+│   │       └── walletApi.ts        # Service Wallet (summary, activity, payout)
 │   ├── theme/
 │   │   └── colors.ts               # Palette de couleurs centralisée
 │   └── types/
-│       └── navigation.ts           # Types pour AuthStack et AppTabs
+│       └── navigation.ts           # Types pour AuthStack, AppTabs, GiftStack
 └── package.json
 ```
 
@@ -157,18 +174,41 @@ ipconfig  # chercher "IPv4 Address"
 | `/v1/users/me` | GET | Oui | - | `User` |
 | `/v1/users/me` | PUT | Oui | `UpdateUserPayload` | `User` |
 
-### Upload (Images profil)
+### Upload (Images profil et cadeaux)
 
 | Endpoint | Méthode | Authentifié | Body | Réponse |
 |----------|---------|-------------|------|---------|
 | `/v1/uploads/profile/avatar` | POST | Oui | `multipart/form-data` (champ `file`) | `{ url, pathname }` |
 | `/v1/uploads/profile/banner` | POST | Oui | `multipart/form-data` (champ `file`) | `{ url, pathname }` |
+| `/v1/uploads/gifts/:giftId/media` | POST | Oui | `multipart/form-data` (champ `file`) | `{ url, pathname }` |
+| `/v1/uploads/public/donor-photo` | POST | Non | `multipart/form-data` (champ `file`) + `donorClaimToken` | `{ url, pathname }` |
 
 **Contraintes upload** :
 - Formats acceptés : `image/jpeg`, `image/png`, `image/webp`
 - Taille max : 5 MB
 - Stockage : Vercel Blob
-- Path : `${userId}/profile/avatar-${uuid}.${ext}` ou `${userId}/profile/banner-${uuid}.${ext}`
+- Path profil : `${userId}/profile/avatar-${uuid}.${ext}` ou `${userId}/profile/banner-${uuid}.${ext}`
+- Path cadeau : `${userId}/gifts/${giftId}/${uuid}.${ext}`
+- Path donor : `donors/${uuid}.${ext}`
+
+### Gift (Cadeaux)
+
+| Endpoint | Méthode | Authentifié | Payload | Réponse |
+|----------|---------|-------------|---------|---------|
+| `/v1/gifts` | POST | Oui | `CreateGiftPayload` | `Gift` |
+| `/v1/gifts/me` | GET | Oui | - | `Gift[]` |
+| `/v1/gifts/:id` | GET | Oui | - | `Gift` |
+| `/v1/gifts/:id` | PUT | Oui | `UpdateGiftPayload` | `Gift` |
+| `/v1/gifts/:id` | DELETE | Oui | - | `{ message }` |
+
+### Checkout Public (Paiement donateur)
+
+| Endpoint | Méthode | Authentifié | Payload | Réponse |
+|----------|---------|-------------|---------|---------|
+| `/v1/checkout/public/gifts/:giftId` | POST | Non | `{ optionPhoto, successUrl, cancelUrl }` | `{ checkoutUrl, sessionId }` |
+| `/v1/checkout/public/session` | GET | Non | `?session_id=...` | `{ gift, transaction, donorClaimToken }` |
+| `/v1/checkout/public/gifts/:giftId/donor-info` | POST | Non | `{ donorClaimToken, pseudo, email, message }` | `{ success }` |
+| `/v1/checkout/public/gifts/:giftId/donor-photo-url` | POST | Non | `{ donorClaimToken, photoUrl }` | `{ success }` |
 
 ---
 
@@ -204,12 +244,16 @@ Champs pertinents pour le profil :
 
 **États**:
 - `isAuthenticated` (boolean) - État de connexion
+- `onboardingCompleted` (boolean) - Onboarding terminé
 - `isLoading` (boolean) - Chargement initial de la session
+- `user` (User | null) - Données utilisateur chargées depuis l'API
 
 **Méthodes**:
-- `login(token?: string)` - Sauvegarde session + token dans SecureStore
-- `logout()` - Clear SecureStore, set isAuthenticated = false
-- `restoreSession()` - Appelé au montage, charge session depuis SecureStore
+- `setAuthenticated(token: string)` - Sauvegarde session + token dans SecureStore
+- `completeOnboarding()` - Marque l'onboarding comme terminé (SecureStore + state)
+- `logout()` - Clear SecureStore, set isAuthenticated = false, clear user
+- `restoreSession()` - Appelé au montage, charge session + user depuis SecureStore/API
+- `refreshUser()` - Recharge les données user depuis l'API
 
 ### AuthStorage (`src/services/auth/authStorage.ts`)
 
@@ -217,33 +261,36 @@ Champs pertinents pour le profil :
 - `saveSession(token?)` - Enregistre session + token optionnel
 - `loadSession()` - Retourne `true` si session existe
 - `getToken()` - Retourne le token JWT si présent
+- `setOnboardingCompleted(value)` - Stocke l'état onboarding
+- `getOnboardingCompleted()` - Lit l'état onboarding
 - `clearSession()` - Supprime session et token
 
 **Clés SecureStore**:
 - `auth_session`: `"true"` si connecté
 - `auth_token`: JWT token (si fourni par le backend)
+- `onboarding_completed`: `"true"` si onboarding terminé
 
 ### Comportement
 
-1. **Au lancement**: `restoreSession()` charge la session
-   - Si session existe → `isAuthenticated = true` → AppTabs
-   - Sinon → `isAuthenticated = false` → AuthStack
+1. **Au lancement**: `restoreSession()` charge session + onboarding
+   - Si session + onboardingCompleted → AppTabs
+   - Sinon → AuthStack
 
-2. **Onboarding OTP**:
+2. **OTP (signup/login)**:
    - PhoneOtpScreen appelle `otpApi.requestOtp()` et `otpApi.verifyOtp()`
    - Si backend non joignable → mode stub (code 000000 accepté)
-   - Token passé via navigation params
+   - Si token reçu → `setAuthenticated(accessToken)`
+   - Si user existant: onboardingCompleted = `true` si profil complet (is18Plus + publicName + username)
 
 3. **Onboarding Profil**:
    - ProfileFormScreen collecte publicName et is18Plus
    - ProfileCustomizeScreen :
-     - Permet de choisir avatar et banner via expo-image-picker
-     - Upload les images via `uploadApi`
-     - Appelle `userApi.updateMe()` avec toutes les données
-     - Appelle `login(token)` pour finaliser
+     - Upload avatar/banner via `uploadApi` (token lu depuis SecureStore)
+     - `userApi.updateMe()` avec toutes les données
+     - `completeOnboarding()` bascule l'app vers AppTabs
 
 4. **Déconnexion** (ProfileScreen):
-   - Appelle `logout()` → Clear session
+   - Appelle `logout()` → Clear session + onboarding
    - RootNavigator détecte le changement → Affiche AuthStack
 
 ---
@@ -280,25 +327,38 @@ Utilise `expo-image-picker` :
 AuthStackParamList = {
   Link: undefined;
   Login: undefined;
-  PhoneOtp: undefined;
-  ProfileForm: { accessToken?: string; isNewUser?: boolean };
-  ProfileCustomize: { accessToken?: string; publicName?: string; is18Plus?: boolean };
+  PhoneOtp: { mode?: 'signup' | 'login'; prefilledUsername?: string };
+  ProfileForm: { prefilledUsername?: string };
+  ProfileCustomize: { publicName?: string; is18Plus?: boolean; prefilledUsername?: string };
+};
+
+AppTabsParamList = {
+  Home: undefined;
+  Gifts: undefined;
+  Profile: undefined;
+};
+
+GiftStackParamList = {
+  GiftsList: undefined;
+  CreateGiftPhotos: undefined;
+  CreateGiftInfo: { mediaAssets: Array<{ uri: string; mimeType?: string }> };
+  GiftDetail: { giftId: string };
 };
 ```
 
 ### Flow Onboarding (AuthStack)
 
-1. **LinkScreen** → Boutons Créer/Connexion
-2. **PhoneOtpScreen** → Saisie téléphone + OTP avec appels API
+1. **LinkScreen** → Configurer le lien + boutons Créer/Connexion
+2. **PhoneOtpScreen** → Saisie téléphone + OTP (mode signup/login)
 3. **ProfileFormScreen** → Nom public + checkbox 18+
-4. **ProfileCustomizeScreen** → Avatar, banner, username, bio → upload → `login(token)` → AppTabs
+4. **ProfileCustomizeScreen** → Avatar, banner, username, bio → upload → `completeOnboarding()` → AppTabs
 
 ### RootNavigator
 
 - Utilise `useAuth()` pour récupérer l'état
 - Affiche loader si `isLoading === true`
-- Affiche `AuthStack` si `!isAuthenticated`
-- Affiche `AppTabs` si `isAuthenticated`
+- Affiche `AuthStack` si `!isAuthenticated` ou onboarding incomplet
+- Affiche `AppTabs` si `isAuthenticated && onboardingCompleted`
 
 ---
 
@@ -314,7 +374,7 @@ Si le backend n'est pas joignable:
 2. **ProfileCustomizeScreen**:
    - Upload images → skip (pas de token)
    - `updateMe` → console.warn, continue sans bloquer
-   - `login()` → sauvegarde session locale uniquement
+   - `setAuthenticated('')` + `completeOnboarding()` → session locale sans token
 
 L'app reste entièrement navigable même sans backend.
 
@@ -337,6 +397,9 @@ L'app reste entièrement navigable même sans backend.
 
 **Image Picker**:
 - `expo-image-picker`
+
+**Clipboard**:
+- `expo-clipboard`
 
 ---
 
@@ -373,13 +436,14 @@ Ajout de `ensureBannerPath(userId, bannerUrl)` pour valider que l'URL contient `
 ✅ **StyleSheet uniquement** (pas de Tailwind/NativeWind)
 ✅ **Upload images** vers Vercel Blob via backend
 ✅ **Code TypeScript strict**
+✅ **Dashboard Home** inspiré YouPay avec actions rapides
 
 ---
 
 ## TESTS À EFFECTUER
 
 ### Avec backend (localhost:4000 accessible)
-1. Lancer l'app → Écran Link
+1. Lancer l'app → Écran Link (input lien + preview)
 2. Parcourir Link → PhoneOtp → entrer téléphone → recevoir OTP
 3. Entrer le code OTP reçu → ProfileForm
 4. Remplir nom + checkbox 18+ → ProfileCustomize
@@ -389,6 +453,12 @@ Ajout de `ensureBannerPath(userId, bannerUrl)` pour valider que l'URL contient `
 8. Vérifier les uploads dans la console (status "Upload avatar...", "Upload bannière...")
 9. Vérifier que l'app arrive sur AppTabs
 10. Vérifier en base que avatarUrl et bannerUrl sont remplis
+
+### Login (user existant)
+1. LinkScreen → "Se connecter"
+2. OTP → `verifyOtp` avec user existant
+3. Si profil complet → AppTabs direct
+4. Si profil incomplet → ProfileForm puis ProfileCustomize
 
 ### Sans backend (mode stub)
 1. Lancer l'app → Écran Link → PhoneOtp
@@ -422,7 +492,115 @@ Les étapes suivantes ne font PAS partie de cette phase:
 
 ---
 
+## DASHBOARD HOME (ÉTAPE 9)
+
+### Structure
+
+Le Dashboard Home (`src/screens/app/HomeScreen.tsx`) est inspiré de YouPay avec :
+
+1. **Header** : Logo HumDaddy + bouton "Ajouter un cadeau"
+2. **Welcome** : "Bienvenue, <publicName>" + lien public cliquable/copiable
+3. **Identity Verification Card** : Bloc conditionnel Stripe (si non vérifié)
+4. **Total Received** : Montant total reçu + lien stats
+5. **Quick Actions** : Flux créateur, Créer cadeau, Liste souhaits, Import Throne
+6. **Recent Gifts** : Liste vide avec CTA création
+7. **Updates** : Section actualités
+
+### Composants
+
+**IdentityVerificationCard** (`src/components/IdentityVerificationCard.tsx`):
+- Affiché si `stripeConnectAccountId` absent OU `stripeOnboardingStatus !== 'actif'` OU `stripeChargesEnabled === false`
+- CTA vers vérification Stripe (placeholder)
+
+**QuickActionsCard** (`src/components/QuickActionsCard.tsx`):
+- 4 actions : Flux créateur, Créer cadeau, Liste souhaits, Import Throne
+- Callbacks pour chaque action
+
+**AddGiftModal** (`src/components/AddGiftModal.tsx`):
+- Modal bottom sheet avec 3 types : Cadeau, Carte cadeau, Carte paiement
+- Déclenchée par bouton header + action rapide + CTA cadeaux récents
+
+### Type User (mis à jour)
+
+```typescript
+interface User {
+  id: string;
+  phoneNumber: string;
+  username?: string;
+  publicName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
+  is18Plus?: boolean;
+  role: string;
+  // Stripe Connect
+  stripeConnectAccountId?: string;
+  stripeOnboardingStatus?: 'pending' | 'actif' | 'restricted';
+  stripeChargesEnabled?: boolean;
+  // Stats
+  totalReceived?: number;
+}
+```
+
+### Logique Stripe
+
+Le bloc "Vérifier l'identité" s'affiche si :
+- `!user.stripeConnectAccountId` OU
+- `user.stripeOnboardingStatus !== 'actif'` OU
+- `user.stripeChargesEnabled === false`
+
+Important : ce bloc NE bloque PAS la création de cadeaux.
+
+---
+
 ## CHANGELOG
+
+### 2026-01-16 - Étape 9 Complétée
+
+**Dashboard Home** :
+- Création `HomeScreen.tsx` complet inspiré YouPay
+- Header avec logo + bouton "Ajouter un cadeau"
+- Section welcome avec lien public copiable (expo-clipboard)
+- Bloc vérification identité conditionnel (Stripe)
+- Carte "Total reçu" avec montant et lien stats
+- Actions rapides : flux créateur, créer cadeau, liste souhaits, import Throne
+- Section cadeaux récents (état vide avec CTA)
+- Section actualités
+
+**Composants créés** :
+- `IdentityVerificationCard.tsx` - Bloc Stripe verification
+- `QuickActionsCard.tsx` - Liste actions rapides
+- `AddGiftModal.tsx` - Modal choix type cadeau (bottom sheet)
+
+**AuthContext mis à jour** :
+- Ajout état `user: User | null`
+- Ajout méthode `refreshUser()` pour recharger depuis API
+- `restoreSession()` charge aussi les données user
+- `logout()` clear aussi l'état user
+
+**Type User enrichi** :
+- Ajout champs Stripe : `stripeConnectAccountId`, `stripeOnboardingStatus`, `stripeChargesEnabled`
+- Ajout `totalReceived` pour stats
+
+**Dépendance ajoutée** :
+- `expo-clipboard` pour copier le lien public
+
+### 2026-01-16 - Étape 8 Complétée
+
+**Auth & onboarding** :
+- Ajout du flag `onboarding_completed` dans SecureStore
+- `AuthContext` expose `onboardingCompleted`, `setAuthenticated`, `completeOnboarding`
+- RootNavigator bascule AppTabs uniquement si session + onboarding terminé
+- OTP stocke le token dès `verifyOtp` (plus de token passé en params)
+- Règle user existant : onboarding terminé si `is18Plus` + `publicName` + `username`
+
+**Login & LinkScreen** :
+- Login OTP réel (redirige vers PhoneOtp en mode login)
+- LinkScreen : input pseudo + preview + image hero `link.png`
+
+**ProfileCustomize** :
+- Uploads et `updateMe` lisent le token depuis SecureStore
+- `completeOnboarding()` finalise le flow, mode stub supporté
 
 ### 2026-01-16 - Étape 7 Complétée
 
@@ -513,4 +691,928 @@ Les étapes suivantes ne font PAS partie de cette phase:
 
 ---
 
-**FIN DE L'ÉTAPE 7**
+## TESTS DASHBOARD (ÉTAPE 9)
+
+### Test Dashboard Home
+1. Lancer l'app → Login → Arriver sur Dashboard
+2. Vérifier header : logo "HumDaddy" + bouton violet "Ajouter un cadeau"
+3. Vérifier welcome : "Bienvenue, <nom>" + lien humdaddy.com/<username>
+4. Tap sur le lien → doit copier (affiche ✓)
+5. Vérifier bloc "Vérifier l'identité" est affiché (Stripe non configuré)
+6. Vérifier carte "Total reçu" : 0 €
+7. Vérifier actions rapides : 4 items cliquables
+
+### Test Modal Cadeau
+1. Tap sur "Ajouter un cadeau" (header)
+2. Modal s'ouvre en bottom sheet
+3. Affiche 3 options : Cadeau, Carte cadeau, Carte paiement
+4. Tap sur une option → Alert + fermeture
+5. Tap sur "Annuler" → fermeture modal
+
+### Test Actions Rapides
+1. Tap "Créer un cadeau" → ouvre modal
+2. Tap "Flux créateur" → Alert placeholder
+3. Tap "Liste souhaits" → Alert placeholder
+4. Tap "Import Throne" → Alert placeholder
+
+### Test Cadeaux Récents
+1. Section affiche état vide
+2. Bouton "Créer un cadeau" → ouvre modal
+
+---
+
+**FIN DE L'ÉTAPE 9**
+
+---
+
+## ÉTAPE 10 - CRÉATION + ACHAT CADEAU
+
+### Résumé
+
+Implémentation complète du flow de création et achat de cadeaux :
+- **Mobile (baby)** : Wizard création cadeau en 2 étapes + liste + détail
+- **Backend** : CRUD cadeaux, upload media, checkout Stripe public, webhook donorClaimToken
+- **Web (daddy)** : À implémenter - page publique avec checkout
+
+### Modèle Gift (Backend)
+
+```javascript
+{
+  userId: ObjectId,              // Propriétaire du cadeau
+  title: String,                 // Titre (3-100 chars)
+  description: String,           // Description (max 1000 chars)
+  mediaUrls: [String],           // URLs images (max 3)
+  price: Number,                 // Prix en centimes
+  currency: String,              // 'eur' (default)
+  externalLink: String,          // Lien externe optionnel
+  isActive: Boolean,             // Cadeau actif (default true)
+  isPurchased: Boolean,          // Déjà acheté (default false)
+  purchasedAt: Date,             // Date d'achat
+  purchasedBy: {                 // Infos donateur (après soumission)
+    donorPseudo: String,
+    donorEmail: String,
+    donorMessage: String,
+    donorPhotoUrl: String,
+  },
+  purchasedTransactionId: ObjectId,  // Référence transaction
+  optionPhotoFee: Number,        // Frais option photo (default 50€)
+  optionPhotoPaid: Boolean,      // Option photo payée
+}
+```
+
+### Modèle Transaction (Backend - champs ajoutés)
+
+```javascript
+{
+  // ... champs existants ...
+  donorEmail: String,            // Email donateur (soumis post-paiement)
+  donorPhotoUrl: String,         // Photo donateur (si option payée)
+  optionPhotoPaid: Boolean,      // Option photo incluse
+  optionPhotoFee: Number,        // Montant option photo
+  donorClaimToken: String,       // Token pour soumettre infos (24h TTL)
+  donorClaimTokenExpiresAt: Date,
+  donorInfoSubmitted: Boolean,   // Infos donateur soumises
+}
+```
+
+### Service Stripe (Backend)
+
+**Constantes** :
+- `OPTION_PHOTO_FEE = 50` (50€ en centimes = 5000)
+
+**Fonctions ajoutées** :
+- `generateDonorClaimToken()` - Génère token UUID pour post-paiement
+- `createPublicCheckoutSession(giftId, optionPhoto, successUrl, cancelUrl)` - Crée session Stripe public
+- `handleCheckoutSessionCompletedWithDonorToken(session)` - Webhook handler avec génération token
+- `getCheckoutSessionInfo(sessionId)` - Récupère infos après paiement
+- `submitDonorInfo(giftId, donorClaimToken, pseudo, email, message)` - Soumet infos donateur
+- `updateDonorPhoto(giftId, donorClaimToken, photoUrl)` - Met à jour photo donateur
+
+### Flow Checkout Public
+
+1. **Pré-paiement** : `POST /v1/checkout/public/gifts/:giftId`
+   - Vérifie que le cadeau existe et n'est pas déjà acheté
+   - Crée session Stripe avec `optionPhoto` optionnelle (+50€)
+   - Retourne `checkoutUrl` pour redirection
+
+2. **Paiement Stripe** : Utilisateur complète le paiement
+
+3. **Webhook** : `checkout.session.completed`
+   - Marque le cadeau comme `isPurchased = true`
+   - Crée Transaction avec `donorClaimToken` (TTL 24h)
+   - Enregistre `optionPhotoPaid` si applicable
+
+4. **Post-paiement** : `GET /v1/checkout/public/session?session_id=...`
+   - Retourne infos cadeau, transaction, et `donorClaimToken`
+
+5. **Soumission infos** : `POST /v1/checkout/public/gifts/:giftId/donor-info`
+   - Vérifie `donorClaimToken` valide et non expiré
+   - Met à jour `purchasedBy` sur le cadeau
+   - Marque `donorInfoSubmitted = true`
+
+6. **Upload photo** (si option payée) :
+   - `POST /v1/uploads/public/donor-photo` (upload vers Vercel Blob)
+   - `POST /v1/checkout/public/gifts/:giftId/donor-photo-url` (associe URL)
+
+### Écrans Mobile
+
+**GiftsListScreen** (`src/screens/app/gifts/GiftsListScreen.tsx`)
+- Liste en grille (2 colonnes) des cadeaux du créateur
+- Badge "Déjà financé" sur les cadeaux achetés
+- Bouton flottant "+" pour créer un cadeau
+- Pull-to-refresh
+- Navigation vers GiftDetail au tap
+
+**CreateGiftPhotosScreen** (`src/screens/app/gifts/CreateGiftPhotosScreen.tsx`)
+- Step 1 du wizard
+- Sélection jusqu'à 3 photos via expo-image-picker
+- Aperçu des photos sélectionnées avec suppression
+- Bouton "Suivant" vers CreateGiftInfo
+
+**CreateGiftInfoScreen** (`src/screens/app/gifts/CreateGiftInfoScreen.tsx`)
+- Step 2 du wizard
+- Formulaire : titre, prix, description, lien externe
+- Validation : titre requis (3+ chars), prix requis (min 1€)
+- Upload des photos puis création du cadeau
+- Navigation vers GiftsList après succès
+
+**GiftDetailScreen** (`src/screens/app/gifts/GiftDetailScreen.tsx`)
+- Affichage détaillé du cadeau
+- Carousel images
+- Infos donateur si acheté
+- Bouton suppression avec confirmation
+
+### Navigation
+
+**GiftStack** (`src/navigation/GiftStack.tsx`)
+- Navigator natif pour les écrans cadeaux
+- Animation slide_from_right
+- Écrans : GiftsList → CreateGiftPhotos → CreateGiftInfo → GiftDetail
+
+**AppTabs** (mis à jour)
+- Nouvel onglet "Cadeaux" au milieu (Home - Gifts - Profile)
+- Utilise GiftStack comme composant
+
+**HomeScreen** (mis à jour)
+- AddGiftModal navigue vers `Gifts > CreateGiftPhotos` pour type "gift"
+
+### API Mobile
+
+**giftApi.ts** (`src/services/api/giftApi.ts`)
+```typescript
+interface Gift {
+  _id: string;
+  title: string;
+  description?: string;
+  mediaUrls: string[];
+  price: number;
+  currency: string;
+  externalLink?: string;
+  isActive: boolean;
+  isPurchased: boolean;
+  purchasedAt?: string;
+  purchasedBy?: {
+    donorPseudo?: string;
+    donorEmail?: string;
+    donorMessage?: string;
+    donorPhotoUrl?: string;
+  };
+}
+
+giftApi.createGift(payload): Promise<Gift>
+giftApi.listMyGifts(): Promise<Gift[]>
+giftApi.getGift(id): Promise<Gift>
+giftApi.updateGift(id, payload): Promise<Gift>
+giftApi.deleteGift(id): Promise<void>
+```
+
+**uploadApi.ts** (mis à jour)
+```typescript
+uploadApi.uploadGiftMedia(giftId, asset): Promise<{ url, pathname }>
+```
+
+### Sécurité
+
+- **donorClaimToken** : UUID généré au webhook, expire après 24h
+- **Validation token** : Vérifié à chaque soumission d'info donateur
+- **Single funding** : Un cadeau ne peut être financé qu'une seule fois (vérifié au checkout)
+- **Routes protégées** : CRUD cadeaux nécessite authentification
+- **Routes publiques** : Checkout et soumission infos avec token uniquement
+
+### Tests
+
+**Création cadeau (mobile)** :
+1. Home → "Ajouter un cadeau" → "Cadeau"
+2. Sélectionner 1-3 photos → "Suivant"
+3. Remplir titre (requis) + prix (requis) + description + lien
+4. "Créer le cadeau" → Upload photos → Création
+5. Redirection vers liste cadeaux
+
+**Liste cadeaux (mobile)** :
+1. Tab "Cadeaux" → Affiche grille
+2. Pull-to-refresh → Recharge
+3. Tap cadeau → Détail
+4. Bouton "+" → Création
+
+**Détail cadeau (mobile)** :
+1. Affiche images en carousel
+2. Affiche titre, prix, description, lien
+3. Si acheté : affiche badge + infos donateur
+4. Bouton supprimer → Confirmation → Suppression
+
+**Checkout (web - à implémenter)** :
+1. Page publique `humdaddy.com/<username>`
+2. Liste des cadeaux non achetés
+3. Bouton "Financer" → Option photo (+50€) → Stripe
+4. Post-paiement → Formulaire infos donateur
+5. Si option photo → Upload photo
+
+---
+
+## CHANGELOG
+
+### 2026-01-16 - Étape 10 Complétée
+
+**Backend - Modèles modifiés** :
+- Gift : ajout `purchasedBy`, `purchasedTransactionId`, `optionPhotoFee`, `optionPhotoPaid`
+- Transaction : ajout `donorEmail`, `donorPhotoUrl`, `optionPhotoPaid`, `optionPhotoFee`, `donorClaimToken`, `donorClaimTokenExpiresAt`, `donorInfoSubmitted`
+
+**Backend - Services** :
+- stripe.service.js : ajout `OPTION_PHOTO_FEE`, `generateDonorClaimToken`, `createPublicCheckoutSession`, `handleCheckoutSessionCompletedWithDonorToken`, `getCheckoutSessionInfo`, `submitDonorInfo`, `updateDonorPhoto`
+- stripeWebhook.service.js : utilise `handleCheckoutSessionCompletedWithDonorToken`
+
+**Backend - Controllers** :
+- upload.controller.js : ajout `uploadGiftMedia`, `uploadDonorPhoto`
+- checkout.controller.js : nouveau fichier avec `createPublicCheckout`, `getPublicCheckoutSession`, `submitPublicDonorInfo`, `updatePublicDonorPhotoUrl`
+
+**Backend - Routes** :
+- upload.routes.js : ajout `/gifts/:giftId/media`, `/public/donor-photo`
+- checkout.routes.js : nouveau fichier avec routes publiques checkout
+
+**Mobile - API** :
+- giftApi.ts : nouveau service CRUD cadeaux
+- uploadApi.ts : ajout `uploadGiftMedia`
+- index.ts : exports giftApi
+
+**Mobile - Écrans** :
+- GiftsListScreen.tsx : liste grille avec badge acheté
+- CreateGiftPhotosScreen.tsx : wizard step 1 (photos)
+- CreateGiftInfoScreen.tsx : wizard step 2 (infos)
+- GiftDetailScreen.tsx : détail + suppression
+
+**Mobile - Navigation** :
+- GiftStack.tsx : nouveau navigator cadeaux
+- AppTabs.tsx : ajout onglet "Cadeaux"
+- HomeScreen.tsx : navigation vers création depuis modal
+- navigation.ts : ajout `GiftStackParamList`
+
+---
+
+**FIN DE L'ÉTAPE 10**
+
+---
+
+## ÉTAPE 11 - STRIPE CONNECT ONBOARDING
+
+### Résumé
+
+Implémentation complète du flow Stripe Connect Express pour permettre aux baby's de recevoir des paiements :
+- **Mobile** : CTA vérification, ouverture Stripe en browser externe, écran retour
+- **Backend** : Service Stripe Connect, webhook account.updated, blocage checkout si non vérifié
+- **Commission** : 22% de frais plateforme
+
+### Variables d'environnement Backend
+
+```
+STRIPE_SECRET_KEY=sk_test_xxxx
+STRIPE_WEBHOOK_SECRET=whsec_xxxx
+PLATFORM_FEE_PERCENT=22
+APP_BASE_URL=https://humdaddy.com
+MOBILE_DEEPLINK_URL=humdaddy://stripe-return
+```
+
+### Modèle User (champs Stripe)
+
+```javascript
+{
+  stripeConnectAccountId: String,           // ID compte Express
+  stripeOnboardingStatus: {                 // Statut onboarding
+    type: String,
+    enum: ['pending', 'verified', 'restricted', 'disabled', 'actif'],
+    default: 'pending',
+  },
+  stripeChargesEnabled: { type: Boolean, default: false },  // Peut recevoir
+  stripePayoutsEnabled: { type: Boolean, default: false },  // Peut retirer
+  stripeDetailsSubmitted: { type: Boolean, default: false }, // Infos soumises
+  stripeRequirements: { type: Mixed },      // Requirements Stripe bruts
+  stripeLastSyncAt: Date,                   // Dernière sync
+}
+```
+
+### Service Stripe Connect (Backend)
+
+**Fichier** : `backend-api/src/services/stripeConnect.service.js`
+
+**Fonctions** :
+- `computeOnboardingStatus(account)` - Calcule le statut depuis l'objet Stripe
+- `applyAccountStatusToUser(user, account)` - Met à jour user avec les données Stripe
+- `createConnectAccount(user)` - Crée un compte Express (idempotent)
+- `createAccountLink(user, returnContext)` - Génère lien onboarding
+- `refreshAccountStatus(user)` - Sync depuis Stripe API
+- `getAccountStatus(userId)` - Récupère et retourne le statut
+
+**Logique de statut** :
+```javascript
+if (disabled_reason) → 'disabled'
+if (payouts_enabled && charges_enabled && details_submitted) → 'actif'
+if (past_due.length || eventually_due.length) → 'restricted'
+if (currently_due.length) → 'pending'
+else → 'pending'
+```
+
+### Webhook account.updated
+
+**Fichier** : `backend-api/src/services/stripeWebhook.service.js`
+
+```javascript
+case 'account.updated': {
+  const account = event.data.object;
+  const user = await User.findOne({ stripeConnectAccountId: account.id });
+  if (user) {
+    applyAccountStatusToUser(user, account);
+    await user.save();
+  }
+  break;
+}
+```
+
+### Blocage Checkout
+
+Dans `stripe.service.js`, les fonctions `createCheckoutSession` et `createPublicCheckoutSession` vérifient :
+```javascript
+if (baby.stripeChargesEnabled === false) {
+  throw new ApiError(
+    httpStatus.BAD_REQUEST,
+    'La baby doit vérifier son identité pour recevoir des paiements.',
+  );
+}
+```
+
+### Commission 22%
+
+Configurée via `PLATFORM_FEE_PERCENT=22` dans `.env`.
+Appliquée via `application_fee_amount` dans les sessions Stripe Checkout.
+
+### Routes Backend
+
+**Fichier** : `backend-api/src/routes/v1/stripeConnect.routes.js`
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/v1/stripe-connect/account` | POST | Oui (baby) | Crée compte Express |
+| `/v1/stripe-connect/account-link` | POST | Oui (baby) | Génère lien onboarding |
+| `/v1/stripe-connect/status` | GET | Oui (baby) | Récupère statut |
+
+### API Mobile
+
+**Fichier** : `mobile-app/src/services/api/stripeConnectApi.ts`
+
+```typescript
+interface StripeConnectStatus {
+  accountId: string | null;
+  status: 'pending' | 'actif' | 'restricted' | 'disabled';
+  chargesEnabled: boolean;
+  payoutsEnabled: boolean;
+  detailsSubmitted: boolean;
+  requirements?: Record<string, unknown>;
+}
+
+stripeConnectApi.createAccount(): Promise<{ accountId: string }>
+stripeConnectApi.createAccountLink(returnContext): Promise<{ url: string }>
+stripeConnectApi.getStatus(): Promise<StripeConnectStatus>
+```
+
+### Navigation Mobile
+
+**AppStack** (`src/navigation/AppStack.tsx`) :
+- Englobe AppTabs et StripeReturnScreen
+- Deep linking configuré pour `humdaddy://stripe-return`
+
+**RootNavigator** (mis à jour) :
+- Utilise AppStack au lieu de AppTabs
+- Configuration deep linking avec expo-linking
+
+### Écrans Mobile
+
+**StripeReturnScreen** (`src/screens/app/StripeReturnScreen.tsx`) :
+- Écran affiché après retour de Stripe
+- Affiche le statut actuel (pending, actif, restricted, disabled)
+- Bouton "Rafraîchir le statut"
+- Bouton "Retour à l'accueil"
+
+**IdentityVerificationCard** (mis à jour) :
+- Props : `onVerify`, `isLoading`, `status`
+- Affichage adapté selon le statut
+- Textes et couleurs différents pour chaque état
+
+**HomeScreen** (mis à jour) :
+- Flow Stripe Connect complet
+- Appelle `createAccount()` puis `createAccountLink()`
+- Ouvre Stripe en browser externe via `Linking.openURL()`
+- Navigate vers StripeReturnScreen au retour
+
+### Dépendance ajoutée
+
+- `expo-linking` - Pour deep linking et ouverture URL externe
+
+### Tests
+
+**Baby sans compte Stripe** :
+1. Home affiche "Vérifiez votre identité"
+2. Clic → Ouvre Stripe onboarding
+3. Retour → Affiche StripeReturnScreen
+4. Statut → pending puis actif
+
+**Baby compte actif** :
+1. Bloc vérification n'apparaît plus
+
+**Daddy checkout** :
+1. Si baby pas active → erreur "La baby doit vérifier son identité..."
+2. Si baby active → checkout OK
+
+**Webhook** :
+1. Modifier compte dans Stripe Dashboard
+2. Webhook reçu → User sync automatique
+
+### Curl Tests Backend
+
+```bash
+# Créer compte Connect (baby auth)
+curl -X POST http://localhost:4000/v1/stripe-connect/account \
+  -H "Authorization: Bearer <TOKEN>"
+
+# Générer lien onboarding
+curl -X POST http://localhost:4000/v1/stripe-connect/account-link \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"returnContext": "mobile"}'
+
+# Récupérer statut
+curl -X GET http://localhost:4000/v1/stripe-connect/status \
+  -H "Authorization: Bearer <TOKEN>"
+```
+
+---
+
+## CHANGELOG
+
+### 2026-01-18 - Étape 11 Complétée
+
+**Backend - Modèle User** :
+- Ajout `stripeLastSyncAt: Date`
+
+**Backend - Config** :
+- env.js : ajout `appBaseUrl`, `mobileDeepLinkUrl`
+- .env.example : ajout `PLATFORM_FEE_PERCENT=22`, `MOBILE_DEEPLINK_URL`
+
+**Backend - Services** :
+- stripeConnect.service.js : ajout `applyAccountStatusToUser`, amélioration `computeOnboardingStatus` (gestion disabled)
+- stripeWebhook.service.js : ajout handler `account.updated`
+- stripe.service.js : ajout blocage checkout si `stripeChargesEnabled === false`
+
+**Backend - Routes** :
+- stripeConnect.routes.js : routes `/account`, `/account-link`, `/status`
+
+**Mobile - API** :
+- stripeConnectApi.ts : nouveau service
+
+**Mobile - Navigation** :
+- AppStack.tsx : nouveau stack englobant AppTabs
+- RootNavigator.tsx : utilise AppStack, deep linking configuré
+- navigation.ts : ajout `AppStackParamList`
+
+**Mobile - Écrans** :
+- StripeReturnScreen.tsx : écran retour Stripe
+- HomeScreen.tsx : flow Stripe Connect complet
+- IdentityVerificationCard.tsx : props status et loading
+
+**Mobile - Dépendances** :
+- expo-linking installé
+
+---
+
+**FIN DE L'ÉTAPE 11**
+
+---
+
+## ÉTAPE 12 - TAB BAR FINALE + PROFIL COMPLET
+
+### Résumé
+
+Implémentation de la Tab Bar finale avec icônes et bouton + central, plus un écran Profil complet permettant à la baby de modifier son profil avec auto-save.
+
+### Backend - Modifications
+
+**Modèle User** (`backend-api/src/models/user.model.js`) :
+- Ajout champs `firstName`, `lastName`
+- Ajout virtual `publicProfileUrl` (lecture seule)
+- Configuration `toJSON` et `toObject` avec virtuals
+
+```javascript
+{
+  firstName: String,
+  lastName: String,
+  // ... autres champs existants ...
+}
+
+// Virtual
+userSchema.virtual('publicProfileUrl').get(function () {
+  if (this.username) {
+    return `https://humdaddy.com/${this.username}`;
+  }
+  return null;
+});
+```
+
+**Upload Controller** (`backend-api/src/controllers/upload.controller.js`) :
+- Ajout fonction `uploadProfileGallery` pour upload images galerie
+
+**Upload Routes** (`backend-api/src/routes/v1/upload.routes.js`) :
+- Ajout route `POST /v1/uploads/profile/gallery`
+
+### Mobile - Tab Bar
+
+**AppTabs** (`src/navigation/AppTabs.tsx`) :
+- 4 onglets : Home, Add (bouton +), Gifts, Profile
+- Icônes Ionicons pour chaque onglet
+- Bouton "+" central surélevé avec style custom
+- AddGiftModal intégré dans AppTabs
+
+```typescript
+<Tab.Screen name="Home" options={{ tabBarIcon: <Ionicons name="home-outline" /> }} />
+<Tab.Screen name="Add" options={{ tabBarButton: <AddButton /> }} />
+<Tab.Screen name="Gifts" options={{ tabBarIcon: <Ionicons name="gift-outline" /> }} />
+<Tab.Screen name="Profile" options={{ tabBarIcon: <Ionicons name="person-outline" /> }} />
+```
+
+**Types Navigation** (`src/types/navigation.ts`) :
+- Ajout écran `Add` à `AppTabsParamList`
+- `Gifts` avec `NavigatorScreenParams<GiftStackParamList>`
+
+### Mobile - ProfileScreen
+
+**Fonctionnalités** :
+- Header avec indicateur "Sauvegarde..."
+- Banner + Avatar éditables (tap pour upload)
+- Lien public copiable (publicProfileUrl)
+- Username en lecture seule (avec icône cadenas)
+- Nom public éditable avec auto-save
+- Bio éditable avec auto-save
+- Réseaux sociaux (Instagram, Twitter, Twitch)
+- Galerie d'images (max 3, ajout/suppression)
+- Bouton déconnexion avec confirmation
+
+**Auto-save avec debounce** :
+```typescript
+const DEBOUNCE_MS = 1000;
+const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+const pendingChanges = useRef<UpdateUserPayload>({});
+
+const scheduleAutoSave = useCallback((changes: UpdateUserPayload) => {
+  pendingChanges.current = { ...pendingChanges.current, ...changes };
+  if (debounceTimer.current) clearTimeout(debounceTimer.current);
+  debounceTimer.current = setTimeout(async () => {
+    await userApi.updateMe(pendingChanges.current);
+    pendingChanges.current = {};
+    await refreshUser();
+  }, DEBOUNCE_MS);
+}, [refreshUser]);
+```
+
+**États gérés** :
+- `publicName`, `bio`, `socialLinks`, `galleryUrls` (form state)
+- `saving` (indicateur sauvegarde)
+- `uploadingAvatar`, `uploadingBanner`, `uploadingGallery` (upload states)
+
+### Mobile - API Updates
+
+**Type User** (`src/services/api/otpApi.ts`) :
+```typescript
+export interface SocialLinks {
+  onlyfans?: string;
+  mym?: string;
+  instagram?: string;
+  twitter?: string;
+  twitch?: string;
+}
+
+export interface User {
+  // ... existant ...
+  firstName?: string;
+  lastName?: string;
+  galleryUrls?: string[];
+  socialLinks?: SocialLinks;
+  publicProfileUrl?: string;
+}
+```
+
+**UpdateUserPayload** (`src/services/api/userApi.ts`) :
+```typescript
+export interface UpdateUserPayload {
+  username?: string;
+  firstName?: string;
+  lastName?: string;
+  publicName?: string;
+  bio?: string;
+  avatarUrl?: string;
+  bannerUrl?: string;
+  galleryUrls?: string[];
+  is18Plus?: boolean;
+  socialLinks?: SocialLinks;
+}
+```
+
+**uploadApi** (`src/services/api/uploadApi.ts`) :
+```typescript
+uploadApi.uploadProfileGallery(asset): Promise<{ url, pathname }>
+```
+
+### Dépendance ajoutée
+
+- `@expo/vector-icons` - Pour les icônes de tab bar (Ionicons)
+
+### Tests
+
+**Tab Bar** :
+1. Vérifier 4 onglets avec icônes
+2. Bouton "+" central surélevé avec couleur accent
+3. Tap "+" → ouvre AddGiftModal
+4. Navigation entre onglets fonctionne
+
+**ProfileScreen** :
+1. Banner tap → picker image → upload → affichage
+2. Avatar tap → picker image → upload → affichage
+3. Modifier publicName → "Sauvegarde..." → refresh
+4. Modifier bio → auto-save après 1s
+5. Modifier réseaux sociaux → auto-save
+6. Galerie : ajouter image (max 3), supprimer image
+7. Lien public tap → copie (icône checkmark)
+8. Déconnexion → confirmation → logout
+
+---
+
+## CHANGELOG
+
+### 2026-01-18 - Étape 12 Complétée
+
+**Backend - Modèle User** :
+- Ajout `firstName: String`, `lastName: String`
+- Ajout virtual `publicProfileUrl` avec getter
+- Configuration `toJSON` et `toObject` avec virtuals
+
+**Backend - Upload** :
+- Ajout `uploadProfileGallery` dans upload.controller.js
+- Ajout route `POST /v1/uploads/profile/gallery`
+
+**Mobile - Navigation** :
+- AppTabs refactorisé avec icônes Ionicons
+- Bouton "+" central avec AddGiftModal intégré
+- Types navigation mis à jour (Add, NavigatorScreenParams)
+
+**Mobile - ProfileScreen** :
+- Écran complet avec tous les champs éditables
+- Auto-save avec debounce (1000ms)
+- Upload avatar, banner, gallery
+- Galerie avec max 3 images
+- Lien public copiable
+- Déconnexion avec confirmation
+
+**Mobile - API** :
+- Type User enrichi (firstName, lastName, galleryUrls, socialLinks, publicProfileUrl)
+- UpdateUserPayload complet
+- uploadApi.uploadProfileGallery ajouté
+
+**Mobile - Dépendances** :
+- @expo/vector-icons installé
+
+---
+
+**FIN DE L'ÉTAPE 12**
+
+---
+
+## ÉTAPE 13 - WALLET (SOLDE + RETRAITS) + STRIPE RETURN DEEPLINK
+
+### Résumé
+
+Implémentation complète du Wallet pour les baby's :
+- Voir le solde (disponible / en attente / total reçu)
+- Historique complet (paiements reçus + retraits + frais)
+- Demander un retrait partiel (min 100€) vers IBAN via Stripe Connect
+- Flow de retour Stripe : web-app → deeplink → app mobile
+
+### Règles métier Wallet
+
+- **Devise** : EUR
+- **Min payout** : 100€ (10000 centimes)
+- **Retrait** : partiel (input montant)
+- **Type payout** : instant si Stripe le permet, sinon fallback standard
+- **IBAN** : géré uniquement via l'onboarding Stripe
+- **Autorisation payout** : basée sur les flags Stripe (chargesEnabled, payoutsEnabled, onboardingStatus)
+
+### Backend - Endpoints Wallet
+
+| Endpoint | Méthode | Auth | Description |
+|----------|---------|------|-------------|
+| `/v1/wallet/summary` | GET | Oui (baby) | Résumé wallet (solde, statut payout) |
+| `/v1/wallet/activity` | GET | Oui (baby) | Historique (paiements + retraits + frais) |
+| `/v1/wallet/payouts` | POST | Oui (baby) | Créer un retrait |
+
+**Response GET /v1/wallet/summary** :
+```json
+{
+  "currency": "eur",
+  "available": 12345,
+  "pending": 6789,
+  "totalReceived": 55555,
+  "canPayout": true,
+  "reasonsBlocked": [],
+  "minPayout": 10000,
+  "stripe": {
+    "accountId": "acct_...",
+    "chargesEnabled": true,
+    "payoutsEnabled": true,
+    "onboardingStatus": "actif",
+    "requirements": {}
+  }
+}
+```
+
+**Response GET /v1/wallet/activity** :
+```json
+{
+  "items": [
+    {
+      "id": "...",
+      "type": "received",
+      "amount": 5000,
+      "fee": 1100,
+      "currency": "eur",
+      "status": "succeeded",
+      "date": "2026-01-19T...",
+      "gift": { "id": "...", "title": "...", "imageUrl": "..." },
+      "donor": { "pseudo": "...", "message": "..." }
+    },
+    {
+      "id": "...",
+      "type": "payout",
+      "amount": -10000,
+      "fee": 0,
+      "currency": "eur",
+      "status": "approved",
+      "date": "2026-01-19T...",
+      "stripePayoutId": "po_..."
+    }
+  ],
+  "nextCursor": "2026-01-18T...",
+  "hasMore": true
+}
+```
+
+**Request POST /v1/wallet/payouts** :
+```json
+{ "amount": 15000, "speed": "instant" }
+```
+
+### Backend - Services modifiés
+
+**wallet.service.js** :
+- `getWalletSummary(user)` - Résumé avec balance Stripe + total reçu
+- `getWalletActivity(user, { limit, cursor })` - Historique unifié
+- `createPayout(user, { amount, speed })` - Crée payout Stripe avec fallback
+- `checkPayoutAllowed(user, amountInCents)` - Vérifie autorisation
+
+**stripeConnect.service.js** :
+- `createAccountLink()` modifié pour rediriger vers web-app `/stripe/return?context=mobile`
+
+### Web-app - Pages Stripe Return
+
+**`/stripe/return/page.tsx`** :
+- Détecte `context=mobile`
+- Tente d'ouvrir deeplink `humdaddy://stripe/return`
+- Affiche bouton fallback si auto-redirect échoue
+
+**`/stripe/refresh/page.tsx`** :
+- Même logique pour session expirée
+- Deeplink `humdaddy://stripe/refresh`
+
+### Mobile - WalletScreen
+
+**Fonctionnalités** :
+- Carte solde : disponible, en attente, total reçu
+- Carte retrait : input montant + validation + confirmation modal
+- Historique : FlatList avec pagination (cursor)
+- Pull-to-refresh
+
+**États gérés** :
+- `summary: WalletSummary | null`
+- `activity: WalletActivityItem[]`
+- `loading`, `refreshing`, `loadingMore`
+- `payoutModalVisible`, `payoutAmount`, `payoutLoading`
+
+### Mobile - Tab Bar
+
+**Ordre des onglets** : Home | Wallet | + | Cadeaux | Profil
+
+```typescript
+<Tab.Screen name="Home" ... />
+<Tab.Screen name="Wallet" ... />
+<Tab.Screen name="Add" ... />
+<Tab.Screen name="Gifts" ... />
+<Tab.Screen name="Profile" ... />
+```
+
+### Mobile - Deep Linking
+
+**app.json** :
+```json
+{
+  "scheme": "humdaddy"
+}
+```
+
+**RootNavigator** :
+- `StripeDeepLinkHandler` composant
+- Écoute `Linking.addEventListener('url', ...)`
+- Gère `humdaddy://stripe/return` et `humdaddy://stripe/refresh`
+- Appelle `refreshUser()` + affiche Alert
+
+### Mobile - API Wallet
+
+**walletApi.ts** :
+```typescript
+walletApi.getSummary(): Promise<WalletSummary>
+walletApi.listActivity(params): Promise<WalletActivityResponse>
+walletApi.createPayout({ amount, speed }): Promise<PayoutResponse>
+```
+
+### Tests
+
+**Mobile - Wallet** :
+1. Tab Wallet visible dans la barre
+2. Summary OK + amounts affichés en € (format fr-FR)
+3. Retrait < 100€ bloqué
+4. Retrait > available bloqué
+5. Retrait validé → payout créé
+6. Payout instant fallback standard si non disponible
+7. Historique paginé correctement
+
+**Stripe onboarding** :
+1. Depuis app : "Vérifier identité" ouvre Stripe
+2. Fin onboarding → redirige web-app `/stripe/return?context=mobile`
+3. Web-app tente d'ouvrir app via deeplink
+4. App reçoit deeplink → refreshUser() + Alert "Compte Stripe mis à jour"
+5. Bloc "Vérifier identité" disparaît si status = actif
+
+---
+
+## CHANGELOG
+
+### 2026-01-19 - Étape 13 Complétée
+
+**Backend - wallet.service.js** :
+- Ajout `getWalletSummary()` avec balance Stripe + total reçu
+- Ajout `getWalletActivity()` avec pagination (transactions + cashouts)
+- Ajout `createPayout()` avec fallback instant → standard
+- Ajout `checkPayoutAllowed()` et `getPayoutBlockedReasons()`
+
+**Backend - wallet.controller.js** :
+- Ajout `getSummary`, `getActivity`, `requestPayout`
+
+**Backend - wallet.routes.js** :
+- Ajout routes `/summary`, `/activity`, `/payouts`
+
+**Backend - stripeConnect.service.js** :
+- `createAccountLink()` redirige vers web-app avec `?context=mobile`
+
+**Web-app - Pages Stripe** :
+- `/stripe/return/page.tsx` - Page retour avec deeplink
+- `/stripe/refresh/page.tsx` - Page refresh avec deeplink
+
+**Mobile - API** :
+- `walletApi.ts` nouveau service
+
+**Mobile - Écrans** :
+- `WalletScreen.tsx` - Écran wallet complet
+
+**Mobile - Navigation** :
+- `AppTabs.tsx` - Ajout onglet Wallet
+- `RootNavigator.tsx` - `StripeDeepLinkHandler` pour gérer deeplinks
+- `navigation.ts` - Ajout `Wallet` à `AppTabsParamList`
+
+**Mobile - Configuration** :
+- `app.json` - Ajout `scheme: "humdaddy"`
+
+---
+
+**FIN DE L'ÉTAPE 13**

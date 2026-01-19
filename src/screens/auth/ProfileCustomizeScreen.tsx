@@ -17,14 +17,15 @@ import { AuthStackParamList } from '../../types/navigation';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../services/auth/AuthContext';
 import { userApi, uploadApi, getErrorMessage } from '../../services/api';
+import { getToken } from '../../services/auth/authStorage';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileCustomize'>;
 
 export default function ProfileCustomizeScreen({ route }: Props) {
-  const { accessToken, publicName, is18Plus } = route.params || {};
-  const { login } = useAuth();
+  const { publicName, is18Plus, prefilledUsername } = route.params || {};
+  const { completeOnboarding, setAuthenticated } = useAuth();
 
-  const [username, setUsername] = useState('');
+  const [username, setUsername] = useState(prefilledUsername || '');
   const [bio, setBio] = useState('');
   const [avatarAsset, setAvatarAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [bannerAsset, setBannerAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
@@ -54,13 +55,15 @@ export default function ProfileCustomizeScreen({ route }: Props) {
     setError('');
     setUploadStatus('');
 
+    const token = await getToken();
+
     let avatarUrl: string | undefined;
     let avatarPathname: string | undefined;
     let bannerUrl: string | undefined;
     let bannerPathname: string | undefined;
 
     // Upload avatar si sélectionné
-    if (avatarAsset && accessToken) {
+    if (avatarAsset && token) {
       try {
         setUploadStatus('Upload avatar...');
         const result = await uploadApi.uploadProfileAvatar(avatarAsset);
@@ -74,7 +77,7 @@ export default function ProfileCustomizeScreen({ route }: Props) {
     }
 
     // Upload banner si sélectionné
-    if (bannerAsset && accessToken) {
+    if (bannerAsset && token) {
       try {
         setUploadStatus('Upload bannière...');
         const result = await uploadApi.uploadProfileBanner(bannerAsset);
@@ -88,7 +91,7 @@ export default function ProfileCustomizeScreen({ route }: Props) {
     }
 
     // Mettre à jour le profil via API si on a un token
-    if (accessToken) {
+    if (token) {
       try {
         setUploadStatus('Sauvegarde profil...');
         await userApi.updateMe({
@@ -111,9 +114,12 @@ export default function ProfileCustomizeScreen({ route }: Props) {
       console.warn('[ProfileCustomize] Pas de token, profil non synchronisé avec le backend');
     }
 
-    // Finaliser l'authentification locale
+    // Finaliser l'onboarding local
     try {
-      await login(accessToken);
+      if (!token) {
+        await setAuthenticated('');
+      }
+      await completeOnboarding();
     } catch (err) {
       setError('Erreur lors de la finalisation. Réessayez.');
       setIsLoading(false);

@@ -87,7 +87,7 @@ npx expo start -c
 Si le backend n'est pas accessible, l'app fonctionne en mode stub :
 - Utilisez le code OTP `000000` pour passer l'authentification
 - Les images sélectionnées ne seront pas uploadées (skip)
-- Les données ne sont pas synchronisées mais la navigation fonctionne
+- Les données ne sont pas synchronisées mais la navigation fonctionne (session locale)
 
 ## Fonctionnalités
 
@@ -96,6 +96,10 @@ Si le backend n'est pas accessible, l'app fonctionne en mode stub :
 2. **Vérification OTP** - Saisie téléphone puis code SMS
 3. **Formulaire profil** - Nom public et confirmation 18+
 4. **Personnalisation** - Avatar, bannière, username, bio
+
+### Auth
+- `onboarding_completed` est stocké dans SecureStore
+- `logout()` réinitialise session + onboarding
 
 ### Upload d'images
 - Sélection via la galerie du device

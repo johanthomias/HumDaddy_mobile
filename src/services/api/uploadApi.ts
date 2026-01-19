@@ -95,4 +95,23 @@ export const uploadApi = {
   uploadProfileBanner: async (asset: ImagePickerAsset): Promise<UploadResponse> => {
     return uploadImage('/v1/uploads/profile/banner', asset, 'banner');
   },
+
+  /**
+   * Upload une image pour un cadeau (max 3 par cadeau)
+   * @param giftId - ID du cadeau
+   * @param asset - Image sélectionnée via expo-image-picker
+   * @returns URL et pathname de l'image uploadée
+   */
+  uploadGiftMedia: async (giftId: string, asset: ImagePickerAsset): Promise<UploadResponse> => {
+    return uploadImage(`/v1/uploads/gifts/${giftId}/media`, asset, 'gift');
+  },
+
+  /**
+   * Upload une image pour la galerie de profil (max 3 images)
+   * @param asset - Image sélectionnée via expo-image-picker
+   * @returns URL et pathname de l'image uploadée
+   */
+  uploadProfileGallery: async (asset: ImagePickerAsset): Promise<UploadResponse> => {
+    return uploadImage('/v1/uploads/profile/gallery', asset, 'gallery');
+  },
 };

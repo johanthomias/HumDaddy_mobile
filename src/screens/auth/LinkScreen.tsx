@@ -1,5 +1,15 @@
-import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Image,
+} from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
 import { colors } from '../../theme/colors';
@@ -7,25 +17,75 @@ import { colors } from '../../theme/colors';
 type Props = NativeStackScreenProps<AuthStackParamList, 'Link'>;
 
 export default function LinkScreen({ navigation }: Props) {
+  const [username, setUsername] = useState('');
+
+  const normalizedUsername = useMemo(() => {
+    return username.trim() ? username : '';
+  }, [username]);
+
+  const handleChangeUsername = (value: string) => {
+    const normalized = value
+      .toLowerCase()
+      .trim()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9._-]/g, '');
+    setUsername(normalized);
+  };
+
+  const previewUsername = normalizedUsername || 'votre_pseudo';
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Bienvenue sur HumDaddy</Text>
-      <Text style={styles.subtitle}>Gérez le sommeil de votre bébé</Text>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <Image
+          source={require('../../assets/link.png')}
+          style={styles.heroImage}
+          resizeMode="cover"
+        />
 
-      <Pressable
-        style={styles.button}
-        onPress={() => navigation.navigate('PhoneOtp')}
-      >
-        <Text style={styles.buttonText}>Créer mon compte</Text>
-      </Pressable>
+        <Text style={styles.title}>Votre lien HumDaddy</Text>
+        <Text style={styles.subtitle}>Personnalisez votre page en quelques secondes</Text>
 
-      <Pressable
-        style={styles.buttonSecondary}
-        onPress={() => navigation.navigate('Login')}
-      >
-        <Text style={styles.buttonSecondaryText}>Se connecter</Text>
-      </Pressable>
-    </View>
+        <View style={styles.linkCard}>
+          <Text style={styles.linkLabel}>Configurer votre lien</Text>
+          <View style={styles.linkRow}>
+            <Text style={styles.linkPrefix}>humdaddy.com/</Text>
+            <TextInput
+              style={styles.linkInput}
+              placeholder="votre_pseudo"
+              placeholderTextColor={colors.muted}
+              value={username}
+              onChangeText={handleChangeUsername}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+          <Text style={styles.previewText}>Prévisualisation : humdaddy.com/{previewUsername}</Text>
+        </View>
+
+        <Pressable
+          style={styles.button}
+          onPress={() =>
+            navigation.navigate('PhoneOtp', {
+              mode: 'signup',
+              prefilledUsername: normalizedUsername || undefined,
+            })
+          }
+        >
+          <Text style={styles.buttonText}>Créer mon compte</Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.buttonSecondary}
+          onPress={() => navigation.navigate('Login')}
+        >
+          <Text style={styles.buttonSecondaryText}>Se connecter</Text>
+        </Pressable>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -33,22 +93,68 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.primary,
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  content: {
     paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 40,
+  },
+  heroImage: {
+    width: '100%',
+    height: 240,
+    borderRadius: 20,
+    marginBottom: 24,
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
     color: colors.text,
-    marginBottom: 12,
-    textAlign: 'center',
+    marginBottom: 8,
+    textAlign: 'left',
   },
   subtitle: {
     fontSize: 16,
     color: colors.muted,
-    marginBottom: 48,
-    textAlign: 'center',
+    marginBottom: 28,
+    textAlign: 'left',
+  },
+  linkCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 28,
+  },
+  linkLabel: {
+    color: colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  linkPrefix: {
+    color: colors.muted,
+    fontSize: 14,
+  },
+  linkInput: {
+    flex: 1,
+    minWidth: 120,
+    color: colors.text,
+    fontSize: 16,
+    marginLeft: 6,
+    paddingVertical: 4,
+  },
+  previewText: {
+    color: colors.muted,
+    fontSize: 13,
+    marginTop: 12,
   },
   button: {
     backgroundColor: colors.accent,
@@ -57,7 +163,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 14,
   },
   buttonText: {
     color: colors.text,
@@ -66,7 +172,7 @@ const styles = StyleSheet.create({
   },
   buttonSecondary: {
     backgroundColor: 'transparent',
-    paddingVertical: 16,
+    paddingVertical: 12,
     paddingHorizontal: 32,
     borderRadius: 12,
     width: '100%',
@@ -76,7 +182,7 @@ const styles = StyleSheet.create({
   },
   buttonSecondaryText: {
     color: colors.muted,
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
   },
 });

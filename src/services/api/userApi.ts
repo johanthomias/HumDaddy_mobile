@@ -1,23 +1,22 @@
 import httpClient from './httpClient';
-import type { User } from './otpApi';
+import type { User, SocialLinks } from './otpApi';
 
 /**
  * Payload pour la mise à jour du profil utilisateur
  */
 export interface UpdateUserPayload {
   username?: string;
+  firstName?: string;
+  lastName?: string;
   publicName?: string;
   bio?: string;
   avatarUrl?: string;
   avatarPathname?: string;
   bannerUrl?: string;
   bannerPathname?: string;
+  galleryUrls?: string[];
   is18Plus?: boolean;
-  socialLinks?: {
-    instagram?: string;
-    twitter?: string;
-    tiktok?: string;
-  };
+  socialLinks?: SocialLinks;
 }
 
 /**
