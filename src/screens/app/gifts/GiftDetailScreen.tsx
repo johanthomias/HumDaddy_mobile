@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,24 +8,33 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
+  Share,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { GiftStackParamList } from '../../../types/navigation';
 import { colors } from '../../../theme/colors';
 import { giftApi, getErrorMessage, Gift } from '../../../services/api';
+import { useI18n } from '../../../services/i18n';
+import { useAuth } from '../../../services/auth/AuthContext';
 
 type Props = NativeStackScreenProps<GiftStackParamList, 'GiftDetail'>;
 
 export default function GiftDetailScreen({ navigation, route }: Props) {
+  const { t } = useI18n();
+  const { user } = useAuth();
   const { giftId } = route.params;
   const [gift, setGift] = useState<Gift | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
-  useEffect(() => {
-    loadGift();
-  }, [giftId]);
+  // Recharger les données quand l'écran reprend le focus (après édition)
+  useFocusEffect(
+    useCallback(() => {
+      loadGift();
+    }, [giftId])
+  );
 
   const loadGift = async () => {
     setIsLoading(true);
@@ -41,16 +50,24 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
     }
   };
 
+  const handleEdit = () => {
+    if (!gift || gift.isPurchased) {
+      Alert.alert(t('common.error'), t('gifts.detail.editDisabled'));
+      return;
+    }
+    navigation.navigate('EditGift', { giftId });
+  };
+
   const handleDelete = () => {
     if (!gift || gift.isPurchased) return;
 
     Alert.alert(
-      'Supprimer le cadeau',
-      'Êtes-vous sûr de vouloir supprimer ce cadeau ?',
+      t('gifts.detail.deleteConfirm.title'),
+      t('gifts.detail.deleteConfirm.message'),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Supprimer',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setIsDeleting(true);
@@ -58,7 +75,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
               await giftApi.deleteGift(giftId);
               navigation.goBack();
             } catch (err) {
-              Alert.alert('Erreur', getErrorMessage(err));
+              Alert.alert(t('common.error'), getErrorMessage(err));
               setIsDeleting(false);
             }
           },
@@ -72,6 +89,24 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
     return `${price.toFixed(2)} ${symbol}`;
   };
 
+  const handleShare = async () => {
+    if (!user?.username) {
+      Alert.alert(t('common.error'), t('gifts.detail.shareNoUsername'));
+      return;
+    }
+
+    const shareUrl = `https://humdaddy.com/${user.username}?gift=${giftId}`;
+    try {
+      await Share.share({
+        message: shareUrl,
+        url: shareUrl, // iOS
+      });
+    } catch (err) {
+      console.warn('[GiftDetail] Share error:', err);
+      Alert.alert(t('common.error'), t('gifts.detail.shareError'));
+    }
+  };
+
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -83,9 +118,9 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
   if (error || !gift) {
     return (
       <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error || 'Cadeau introuvable'}</Text>
+        <Text style={styles.errorText}>{error || t('errors.notFound')}</Text>
         <Pressable style={styles.backButtonError} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonErrorText}>Retour</Text>
+          <Text style={styles.backButtonErrorText}>{t('common.back')}</Text>
         </Pressable>
       </View>
     );
@@ -97,9 +132,9 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
     <View style={styles.container}>
       <View style={styles.header}>
         <Pressable onPress={() => navigation.goBack()}>
-          <Text style={styles.backButton}>Retour</Text>
+          <Text style={styles.backButton}>{t('common.back')}</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Détail</Text>
+        <Text style={styles.headerTitle}>{t('gifts.title')}</Text>
         <View style={{ width: 50 }} />
       </View>
 
@@ -112,11 +147,11 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
         {/* Badge statut */}
         {gift.isPurchased ? (
           <View style={styles.statusBadge}>
-            <Text style={styles.statusBadgeText}>Financé</Text>
+            <Text style={styles.statusBadgeText}>{t('gifts.funded')}</Text>
           </View>
         ) : (
           <View style={[styles.statusBadge, styles.statusBadgeActive]}>
-            <Text style={styles.statusBadgeText}>Actif</Text>
+            <Text style={styles.statusBadgeText}>{t('common.edit')}</Text>
           </View>
         )}
 
@@ -131,7 +166,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
         {/* Description */}
         {gift.description && (
           <View style={styles.descriptionSection}>
-            <Text style={styles.sectionLabel}>Description</Text>
+            <Text style={styles.sectionLabel}>{t('gifts.create.step2.descriptionLabel')}</Text>
             <Text style={styles.descriptionText}>{gift.description}</Text>
           </View>
         )}
@@ -139,7 +174,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
         {/* Lien produit */}
         {gift.productLink && (
           <View style={styles.linkSection}>
-            <Text style={styles.sectionLabel}>Lien produit</Text>
+            <Text style={styles.sectionLabel}>{t('gifts.detail.externalLink')}</Text>
             <Text style={styles.linkText} numberOfLines={2}>
               {gift.productLink}
             </Text>
@@ -149,7 +184,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
         {/* Infos donateur si financé */}
         {gift.isPurchased && gift.purchasedBy && (
           <View style={styles.donorSection}>
-            <Text style={styles.sectionLabel}>Financé par</Text>
+            <Text style={styles.sectionLabel}>{t('gifts.detail.donor.title')}</Text>
             <View style={styles.donorCard}>
               {gift.purchasedBy.donorPhotoUrl && (
                 <Image
@@ -159,7 +194,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
               )}
               <View style={styles.donorInfo}>
                 <Text style={styles.donorName}>
-                  {gift.purchasedBy.donorPseudo || 'Anonyme'}
+                  {gift.purchasedBy.donorPseudo || t('gifts.detail.donor.anonymous')}
                 </Text>
                 {gift.purchasedBy.donorMessage && (
                   <Text style={styles.donorMessage}>
@@ -174,7 +209,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
         {/* Galerie photos */}
         {gift.mediaUrls && gift.mediaUrls.length > 1 && (
           <View style={styles.gallerySection}>
-            <Text style={styles.sectionLabel}>Photos</Text>
+            <Text style={styles.sectionLabel}>{t('gifts.create.step1.title')}</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {gift.mediaUrls.map((url, index) => (
                 <Image key={index} source={{ uri: url }} style={styles.galleryImage} />
@@ -183,19 +218,39 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* Bouton supprimer si non financé */}
+        {/* Bouton partager (toujours visible) */}
+        <Pressable
+          style={styles.shareButton}
+          onPress={handleShare}
+          disabled={!user?.username}
+        >
+          <Text style={styles.shareButtonText}>{t('gifts.detail.share')}</Text>
+        </Pressable>
+
+        {/* Boutons d'action si non financé */}
         {!gift.isPurchased && (
-          <Pressable
-            style={styles.deleteButton}
-            onPress={handleDelete}
-            disabled={isDeleting}
-          >
-            {isDeleting ? (
-              <ActivityIndicator size={20} color={colors.accent} />
-            ) : (
-              <Text style={styles.deleteButtonText}>Supprimer le cadeau</Text>
-            )}
-          </Pressable>
+          <View style={styles.actionsSection}>
+            {/* Bouton modifier */}
+            <Pressable
+              style={styles.editButton}
+              onPress={handleEdit}
+            >
+              <Text style={styles.editButtonText}>{t('gifts.detail.edit')}</Text>
+            </Pressable>
+
+            {/* Bouton supprimer */}
+            <Pressable
+              style={styles.deleteButton}
+              onPress={handleDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size={20} color={colors.accent} />
+              ) : (
+                <Text style={styles.deleteButtonText}>{t('gifts.detail.delete')}</Text>
+              )}
+            </Pressable>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -352,9 +407,23 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginRight: 8,
   },
-  deleteButton: {
-    marginTop: 8,
+  actionsSection: {
+    marginTop: 16,
     marginBottom: 40,
+  },
+  editButton: {
+    backgroundColor: '#7C3AED',
+    paddingVertical: 16,
+    alignItems: 'center',
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  editButtonText: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deleteButton: {
     paddingVertical: 16,
     alignItems: 'center',
     borderWidth: 1,
@@ -363,6 +432,18 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     color: colors.accent,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  shareButton: {
+    backgroundColor: colors.primaryLight,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 12,
+    marginBottom: 16,
+  },
+  shareButtonText: {
+    color: colors.text,
     fontSize: 16,
     fontWeight: '600',
   },

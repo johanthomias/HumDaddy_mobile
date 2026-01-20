@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { colors } from '../theme/colors';
+import { useI18n } from '../services/i18n';
 
 interface QuickAction {
   id: string;
   icon: string;
-  label: string;
+  labelKey: string;
   onPress: () => void;
   hasArrow?: boolean;
   disabled?: boolean;
@@ -24,24 +25,26 @@ export default function QuickActionsCard({
   onCreateWishlist,
   // onImportThrone,
 }: QuickActionsCardProps) {
+  const { t } = useI18n();
+
   const actions: QuickAction[] = [
     // {
     //   id: 'creator-flow',
     //   icon: '📋',
-    //   label: 'Flux de créateur',
+    //   labelKey: 'home.quickActions.creatorFlow',
     //   onPress: onCreatorFlow,
     //   hasArrow: true,
     // },
     {
       id: 'create-gift',
       icon: '🎁',
-      label: 'Créer un cadeau',
+      labelKey: 'home.quickActions.createGift',
       onPress: onCreateGift,
     },
     {
       id: 'create-wishlist',
       icon: '📝',
-      label: 'Créer une liste de souhaits',
+      labelKey: 'home.quickActions.wishlist',
       onPress: onCreateWishlist,
       disabled: true,
     },
@@ -49,7 +52,7 @@ export default function QuickActionsCard({
     // {
     //   id: 'import-throne',
     //   icon: '👑',
-    //   label: 'Importer depuis Throne',
+    //   labelKey: 'home.quickActions.importThrone',
     //   onPress: onImportThrone,
     //   hasArrow: true,
     // },
@@ -57,7 +60,7 @@ export default function QuickActionsCard({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Actions rapides</Text>
+      <Text style={styles.title}>{t('home.quickActions.title')}</Text>
       {actions.map((action, index) => (
         <Pressable
           key={action.id}
@@ -84,7 +87,7 @@ export default function QuickActionsCard({
                 action.disabled && styles.textDisabled,
               ]}
             >
-              {action.label}
+              {t(action.labelKey)}
             </Text>
           </View>
           <Text

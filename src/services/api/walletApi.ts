@@ -62,6 +62,41 @@ export interface PayoutResponse {
 }
 
 /**
+ * Transaction avec détails complets
+ */
+export interface Transaction {
+  id: string;
+  amount: number;
+  amountNet: number;
+  feeAmount: number;
+  currency: string;
+  status: string;
+  optionPhotoPaid: boolean;
+  optionPhotoFee: number;
+  donorPseudo?: string;
+  donorEmail?: string;
+  donorMessage?: string;
+  donorPhotoUrl?: string;
+  stripeCheckoutSessionId?: string;
+  gift?: {
+    id: string;
+    title: string;
+    description?: string;
+    imageUrl?: string;
+    mediaUrls?: string[];
+    price: number;
+    currency: string;
+  } | null;
+  createdAt: string;
+}
+
+export interface TransactionsResponse {
+  items: Transaction[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+/**
  * API pour le Wallet
  */
 export const walletApi = {
@@ -99,6 +134,32 @@ export const walletApi = {
       amount: payload.amount,
       speed: payload.speed || 'standard',
     });
+    return response.data;
+  },
+
+  /**
+   * Liste les transactions avec pagination
+   */
+  listTransactions: async (params?: {
+    limit?: number;
+    cursor?: string;
+  }): Promise<TransactionsResponse> => {
+    const response = await httpClient.get<TransactionsResponse>('/v1/wallet/me/transactions', {
+      params: {
+        limit: params?.limit || 20,
+        cursor: params?.cursor,
+      },
+    });
+    return response.data;
+  },
+
+  /**
+   * Récupère le détail d'une transaction
+   */
+  getTransaction: async (transactionId: string): Promise<Transaction> => {
+    const response = await httpClient.get<Transaction>(
+      `/v1/wallet/me/transactions/${transactionId}`
+    );
     return response.data;
   },
 };

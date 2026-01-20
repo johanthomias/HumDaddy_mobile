@@ -13,10 +13,15 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
 import { walletApi } from '../../services/api';
 import type { WalletSummary, WalletActivityItem } from '../../services/api/walletApi';
 import { useAuth } from '../../services/auth/AuthContext';
+import { useI18n } from '../../services/i18n';
+import { WalletStackParamList } from '../../types/navigation';
+
+type Props = NativeStackScreenProps<WalletStackParamList, 'WalletMain'>;
 
 const MIN_PAYOUT_EUR = 100;
 
@@ -38,7 +43,8 @@ const formatDate = (dateString: string): string => {
   });
 };
 
-export default function WalletScreen() {
+export default function WalletScreen({ navigation }: Props) {
+  const { t } = useI18n();
   const { refreshUser } = useAuth();
   const [summary, setSummary] = useState<WalletSummary | null>(null);
   const [activity, setActivity] = useState<WalletActivityItem[]>([]);
@@ -72,7 +78,7 @@ export default function WalletScreen() {
       setHasMore(activityData.hasMore);
     } catch (error) {
       console.error('Error loading wallet data:', error);
-      Alert.alert('Erreur', 'Impossible de charger les données du wallet');
+      Alert.alert(t('common.error'), t('errors.loadingData'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -102,7 +108,7 @@ export default function WalletScreen() {
   const handlePayout = async () => {
     const amountEur = parseFloat(payoutAmount.replace(',', '.'));
     if (isNaN(amountEur) || amountEur < MIN_PAYOUT_EUR) {
-      Alert.alert('Erreur', `Le montant minimum est de ${MIN_PAYOUT_EUR}€`);
+      Alert.alert(t('common.error'), t('wallet.withdraw.errors.minAmount', { amount: MIN_PAYOUT_EUR }));
       return;
     }
 
@@ -110,18 +116,18 @@ export default function WalletScreen() {
     const availableCents = summary?.available || 0;
 
     if (amountCents > availableCents) {
-      Alert.alert('Erreur', `Solde insuffisant. Disponible : ${formatCents(availableCents)}`);
+      Alert.alert(t('common.error'), t('wallet.withdraw.errors.insufficientBalance', { amount: formatCents(availableCents) }));
       return;
     }
 
     // Confirmation
     Alert.alert(
-      'Confirmer le retrait',
-      `Voulez-vous retirer ${formatCents(amountCents)} vers votre compte bancaire ?`,
+      t('wallet.withdraw.confirmTitle'),
+      t('wallet.withdraw.confirmMessage', { amount: formatCents(amountCents) }),
       [
-        { text: 'Annuler', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Confirmer',
+          text: t('common.confirm'),
           onPress: async () => {
             try {
               setPayoutLoading(true);
@@ -134,11 +140,11 @@ export default function WalletScreen() {
               setPayoutAmount('');
 
               Alert.alert(
-                'Retrait effectué',
-                `Votre retrait de ${formatCents(result.amount)} a été initié.\n` +
-                  `Mode : ${result.speed === 'instant' ? 'Instantané' : 'Standard'}` +
+                t('wallet.withdraw.success.title'),
+                t('wallet.withdraw.success.message', { amount: formatCents(result.amount) }) + '\n' +
+                  (result.speed === 'instant' ? t('wallet.withdraw.success.instant') : t('wallet.withdraw.success.standard')) +
                   (result.arrivalDate
-                    ? `\nArrivée estimée : ${formatDate(result.arrivalDate)}`
+                    ? `\n${t('wallet.withdraw.success.arrival', { date: formatDate(result.arrivalDate) })}`
                     : ''),
               );
 
@@ -146,8 +152,8 @@ export default function WalletScreen() {
               loadData(true);
               refreshUser();
             } catch (error: unknown) {
-              const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-              Alert.alert('Erreur', errorMessage);
+              const errorMessage = error instanceof Error ? error.message : t('errors.generic');
+              Alert.alert(t('common.error'), errorMessage);
             } finally {
               setPayoutLoading(false);
             }
@@ -157,6 +163,13 @@ export default function WalletScreen() {
     );
   };
 
+  const handleActivityPress = (item: WalletActivityItem) => {
+    // Only navigate for received payments (not payouts)
+    if (item.type === 'received') {
+      navigation.navigate('TransactionDetail', { transactionId: item.id });
+    }
+  };
+
   const renderActivityItem = ({ item }: { item: WalletActivityItem }) => {
     const isReceived = item.type === 'received';
     const iconName = isReceived ? 'arrow-down-circle' : 'arrow-up-circle';
@@ -164,19 +177,23 @@ export default function WalletScreen() {
     const amountColor = isReceived ? '#22c55e' : '#ef4444';
 
     return (
-      <View style={styles.activityItem}>
+      <Pressable
+        style={styles.activityItem}
+        onPress={() => handleActivityPress(item)}
+        disabled={!isReceived}
+      >
         <View style={styles.activityIcon}>
           <Ionicons name={iconName} size={28} color={iconColor} />
         </View>
         <View style={styles.activityContent}>
           <Text style={styles.activityTitle}>
             {isReceived
-              ? item.gift?.title || 'Paiement reçu'
-              : 'Retrait'}
+              ? item.gift?.title || t('wallet.history.received')
+              : t('wallet.history.payout')}
           </Text>
           <Text style={styles.activityDate}>{formatDate(item.date)}</Text>
           {item.donor?.pseudo && (
-            <Text style={styles.activityDonor}>De : {item.donor.pseudo}</Text>
+            <Text style={styles.activityDonor}>{t('wallet.history.from', { name: item.donor.pseudo })}</Text>
           )}
         </View>
         <View style={styles.activityAmount}>
@@ -184,10 +201,13 @@ export default function WalletScreen() {
             {isReceived ? '+' : ''}{formatCents(item.amount)}
           </Text>
           {item.fee > 0 && (
-            <Text style={styles.feeText}>-{formatCents(item.fee)} frais</Text>
+            <Text style={styles.feeText}>-{formatCents(item.fee)} {t('wallet.history.fee')}</Text>
           )}
         </View>
-      </View>
+        {isReceived && (
+          <Ionicons name="chevron-forward" size={20} color={colors.muted} style={styles.chevron} />
+        )}
+      </Pressable>
     );
   };
 
@@ -203,7 +223,7 @@ export default function WalletScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Wallet</Text>
+        <Text style={styles.headerTitle}>{t('wallet.title')}</Text>
       </View>
 
       <ScrollView
@@ -219,21 +239,21 @@ export default function WalletScreen() {
       >
         {/* Carte Solde */}
         <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Solde disponible</Text>
+          <Text style={styles.balanceLabel}>{t('wallet.available')}</Text>
           <Text style={styles.balanceAmount}>
             {formatCents(summary?.available || 0)}
           </Text>
 
           <View style={styles.balanceRow}>
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>En attente</Text>
+              <Text style={styles.balanceItemLabel}>{t('wallet.pending')}</Text>
               <Text style={styles.balanceItemValue}>
                 {formatCents(summary?.pending || 0)}
               </Text>
             </View>
             <View style={styles.balanceDivider} />
             <View style={styles.balanceItem}>
-              <Text style={styles.balanceItemLabel}>Total reçu</Text>
+              <Text style={styles.balanceItemLabel}>{t('wallet.totalReceived')}</Text>
               <Text style={styles.balanceItemValue}>
                 {formatCents(summary?.totalReceived || 0)}
               </Text>
@@ -245,7 +265,7 @@ export default function WalletScreen() {
         <View style={styles.payoutCard}>
           <View style={styles.payoutHeader}>
             <Ionicons name="wallet-outline" size={24} color={colors.text} />
-            <Text style={styles.payoutTitle}>Retirer vers votre compte</Text>
+            <Text style={styles.payoutTitle}>{t('wallet.withdraw.title')}</Text>
           </View>
 
           {summary?.canPayout ? (
@@ -253,7 +273,7 @@ export default function WalletScreen() {
               style={styles.payoutButton}
               onPress={() => setPayoutModalVisible(true)}
             >
-              <Text style={styles.payoutButtonText}>Demander un retrait</Text>
+              <Text style={styles.payoutButtonText}>{t('wallet.withdraw.button')}</Text>
             </Pressable>
           ) : (
             <View style={styles.payoutBlocked}>
@@ -267,18 +287,18 @@ export default function WalletScreen() {
           )}
 
           <Text style={styles.payoutNote}>
-            Minimum : {MIN_PAYOUT_EUR}€ • IBAN configuré via Stripe
+            {t('wallet.withdraw.minAmount', { amount: MIN_PAYOUT_EUR })} • {t('wallet.withdraw.ibanNote')}
           </Text>
         </View>
 
         {/* Historique */}
         <View style={styles.historySection}>
-          <Text style={styles.sectionTitle}>Historique</Text>
+          <Text style={styles.sectionTitle}>{t('wallet.history.title')}</Text>
 
           {activity.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name="receipt-outline" size={48} color={colors.muted} />
-              <Text style={styles.emptyText}>Aucune activité pour le moment</Text>
+              <Text style={styles.emptyText}>{t('wallet.history.empty')}</Text>
             </View>
           ) : (
             <FlatList
@@ -312,14 +332,14 @@ export default function WalletScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Demander un retrait</Text>
+              <Text style={styles.modalTitle}>{t('wallet.withdraw.modal.title')}</Text>
               <Pressable onPress={() => setPayoutModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </Pressable>
             </View>
 
             <Text style={styles.modalLabel}>
-              Disponible : {formatCents(summary?.available || 0)}
+              {t('wallet.withdraw.modal.available', { amount: formatCents(summary?.available || 0) })}
             </Text>
 
             <View style={styles.inputContainer}>
@@ -328,14 +348,14 @@ export default function WalletScreen() {
                 style={styles.amountInput}
                 value={payoutAmount}
                 onChangeText={setPayoutAmount}
-                placeholder="0,00"
+                placeholder={t('wallet.withdraw.modal.placeholder')}
                 placeholderTextColor={colors.muted}
                 keyboardType="decimal-pad"
                 autoFocus
               />
             </View>
 
-            <Text style={styles.minNote}>Minimum : {MIN_PAYOUT_EUR}€</Text>
+            <Text style={styles.minNote}>{t('wallet.withdraw.modal.minNote', { amount: MIN_PAYOUT_EUR })}</Text>
 
             <Pressable
               style={[
@@ -348,7 +368,7 @@ export default function WalletScreen() {
               {payoutLoading ? (
                 <ActivityIndicator size="small" color={colors.text} />
               ) : (
-                <Text style={styles.confirmButtonText}>Confirmer le retrait</Text>
+                <Text style={styles.confirmButtonText}>{t('wallet.withdraw.modal.confirm')}</Text>
               )}
             </Pressable>
           </View>
@@ -532,6 +552,9 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.muted,
     marginTop: 2,
+  },
+  chevron: {
+    marginLeft: 8,
   },
   loadingMore: {
     paddingVertical: 20,

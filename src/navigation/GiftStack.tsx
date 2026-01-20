@@ -6,6 +6,7 @@ import GiftsListScreen from '../screens/app/gifts/GiftsListScreen';
 import CreateGiftPhotosScreen from '../screens/app/gifts/CreateGiftPhotosScreen';
 import CreateGiftInfoScreen from '../screens/app/gifts/CreateGiftInfoScreen';
 import GiftDetailScreen from '../screens/app/gifts/GiftDetailScreen';
+import EditGiftScreen from '../screens/app/gifts/EditGiftScreen';
 
 const Stack = createNativeStackNavigator<GiftStackParamList>();
 
@@ -21,6 +22,7 @@ export default function GiftStack() {
       <Stack.Screen name="CreateGiftPhotos" component={CreateGiftPhotosScreen} />
       <Stack.Screen name="CreateGiftInfo" component={CreateGiftInfoScreen} />
       <Stack.Screen name="GiftDetail" component={GiftDetailScreen} />
+      <Stack.Screen name="EditGift" component={EditGiftScreen} />
     </Stack.Navigator>
   );
 }

@@ -13,10 +13,12 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
 import { colors } from '../../theme/colors';
+import { useI18n } from '../../services/i18n';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'Link'>;
 
 export default function LinkScreen({ navigation }: Props) {
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
 
   const normalizedUsername = useMemo(() => {
@@ -32,7 +34,7 @@ export default function LinkScreen({ navigation }: Props) {
     setUsername(normalized);
   };
 
-  const previewUsername = normalizedUsername || 'votre_pseudo';
+  const previewUsername = normalizedUsername || t('auth.link.placeholder');
 
   return (
     <KeyboardAvoidingView
@@ -46,16 +48,16 @@ export default function LinkScreen({ navigation }: Props) {
           resizeMode="cover"
         />
 
-        <Text style={styles.title}>Votre lien HumDaddy</Text>
-        <Text style={styles.subtitle}>Personnalisez votre page en quelques secondes</Text>
+        <Text style={styles.title}>{t('auth.link.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.link.subtitle')}</Text>
 
         <View style={styles.linkCard}>
-          <Text style={styles.linkLabel}>Configurer votre lien</Text>
+          <Text style={styles.linkLabel}>{t('auth.link.preview')}</Text>
           <View style={styles.linkRow}>
             <Text style={styles.linkPrefix}>humdaddy.com/</Text>
             <TextInput
               style={styles.linkInput}
-              placeholder="votre_pseudo"
+              placeholder={t('auth.link.placeholder')}
               placeholderTextColor={colors.muted}
               value={username}
               onChangeText={handleChangeUsername}
@@ -63,7 +65,7 @@ export default function LinkScreen({ navigation }: Props) {
               autoCorrect={false}
             />
           </View>
-          <Text style={styles.previewText}>Prévisualisation : humdaddy.com/{previewUsername}</Text>
+          <Text style={styles.previewText}>humdaddy.com/{previewUsername}</Text>
         </View>
 
         <Pressable
@@ -75,14 +77,14 @@ export default function LinkScreen({ navigation }: Props) {
             })
           }
         >
-          <Text style={styles.buttonText}>Créer mon compte</Text>
+          <Text style={styles.buttonText}>{t('auth.link.createAccount')}</Text>
         </Pressable>
 
         <Pressable
           style={styles.buttonSecondary}
           onPress={() => navigation.navigate('Login')}
         >
-          <Text style={styles.buttonSecondaryText}>Se connecter</Text>
+          <Text style={styles.buttonSecondaryText}>{t('auth.link.login')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

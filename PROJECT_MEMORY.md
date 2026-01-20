@@ -6,7 +6,7 @@
 **Framework**: Expo SDK 54 + React Native 0.81.5
 **Langage**: TypeScript
 **Styling**: React Native StyleSheet (PAS de Tailwind/NativeWind)
-**État**: Étape 13 - Wallet (Solde + Retraits) + Stripe Return Web → Deeplink Mobile
+**État**: Étape 16 - Corrections produit
 
 ---
 
@@ -52,6 +52,15 @@ mobile-app/
 │   │   ├── auth/
 │   │   │   ├── AuthContext.tsx     # Context global d'authentification
 │   │   │   └── authStorage.ts      # SecureStore pour persistance session + token
+│   │   ├── i18n/
+│   │   │   ├── index.ts            # Export centralisé
+│   │   │   ├── i18n.ts             # Fonction translate + interpolation
+│   │   │   ├── i18nStorage.ts      # SecureStore pour langue
+│   │   │   ├── I18nContext.tsx     # Context + Provider + useI18n hook
+│   │   │   └── locales/
+│   │   │       ├── index.ts        # Export fr, en
+│   │   │       ├── fr.ts           # Dictionnaire français
+│   │   │       └── en.ts           # Dictionnaire anglais
 │   │   └── api/
 │   │       ├── index.ts            # Export centralisé des services API
 │   │       ├── apiConfig.ts        # Configuration baseURL et timeout
@@ -1616,3 +1625,718 @@ walletApi.createPayout({ amount, speed }): Promise<PayoutResponse>
 ---
 
 **FIN DE L'ÉTAPE 13**
+
+---
+
+## ÉTAPE 14 - INTERNATIONALIZATION (FR/EN)
+
+### Résumé
+
+Implémentation d'un système i18n maison (sans dépendances externes) pour supporter le français et l'anglais dans l'application mobile.
+
+### Stack i18n
+
+- **Pas de dépendances externes** : Pas de i18next, react-i18next, ou autre lib
+- **Context React** : `I18nProvider` + hook `useI18n()`
+- **Dictionnaires** : Objets TypeScript typés (`fr.ts`, `en.ts`)
+- **Persistance** : SecureStore avec clé `app_language`
+- **Langue par défaut** : Français (`fr`)
+
+### Architecture
+
+```
+src/services/i18n/
+├── index.ts              # Export centralisé
+├── i18n.ts               # Fonction translate() + interpolation
+├── i18nStorage.ts        # Persistance SecureStore
+├── I18nContext.tsx       # React Context + Provider + useI18n hook
+└── locales/
+    ├── index.ts          # Export fr, en
+    ├── fr.ts             # Dictionnaire français (complet)
+    └── en.ts             # Dictionnaire anglais (complet)
+```
+
+### Service i18n
+
+**i18nStorage.ts** :
+```typescript
+import * as SecureStore from 'expo-secure-store';
+
+const LANGUAGE_KEY = 'app_language';
+export type Language = 'fr' | 'en';
+
+export const i18nStorage = {
+  getLanguage: async (): Promise<Language | null> => {...},
+  setLanguage: async (lang: Language): Promise<void> => {...},
+};
+```
+
+**i18n.ts** :
+```typescript
+import { fr } from './locales/fr';
+import { en } from './locales/en';
+
+export const DEFAULT_LANGUAGE: Language = 'fr';
+
+// Accès aux clés imbriquées : 'home.quickActions.title'
+function getNestedValue(obj: Record<string, unknown>, path: string): string | undefined
+
+// Interpolation : {{name}} → valeur
+function interpolate(text: string, params?: Record<string, string | number>): string
+
+// Traduction principale
+export function translate(
+  key: string,
+  language: Language,
+  params?: Record<string, string | number>
+): string
+```
+
+**I18nContext.tsx** :
+```typescript
+interface I18nContextType {
+  language: Language;
+  setLanguage: (lang: Language) => Promise<void>;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  isLoading: boolean;
+}
+
+export function I18nProvider({ children }: { children: ReactNode })
+export function useI18n(): I18nContextType
+```
+
+### Convention des clés
+
+Les clés de traduction suivent une convention hiérarchique :
+
+| Préfixe | Usage |
+|---------|-------|
+| `common.*` | Boutons, actions génériques (OK, Cancel, Save, etc.) |
+| `tabs.*` | Labels des onglets de navigation |
+| `auth.*` | Écrans d'authentification (link, login, otp, profileForm, profileCustomize) |
+| `home.*` | Écran d'accueil (welcome, yourLink, verifyIdentity, quickActions, etc.) |
+| `gifts.*` | Cadeaux (title, create, detail, etc.) |
+| `addGiftModal.*` | Modal d'ajout de cadeau |
+| `profile.*` | Écran profil |
+| `wallet.*` | Écran wallet (available, pending, withdraw, history, etc.) |
+| `stripe.*` | Retour Stripe (return, status) |
+| `errors.*` | Messages d'erreur |
+| `validation.*` | Messages de validation formulaire |
+
+### Exemples d'utilisation
+
+**Simple** :
+```typescript
+const { t } = useI18n();
+<Text>{t('common.save')}</Text>
+// FR: "Enregistrer"
+// EN: "Save"
+```
+
+**Avec interpolation** :
+```typescript
+<Text>{t('home.welcome', { name: user.publicName })}</Text>
+// FR: "Bienvenue, Jean"
+// EN: "Welcome, Jean"
+```
+
+**Clé manquante** (dev mode) :
+```typescript
+t('nonexistent.key')
+// Retourne: "nonexistent.key"
+// Console: "[i18n] Missing translation for key: nonexistent.key in language: fr"
+```
+
+### Language Switch (ProfileScreen)
+
+Le switch de langue est intégré dans ProfileScreen avec deux boutons FR/EN :
+
+```typescript
+const { language, setLanguage } = useI18n();
+
+<View style={styles.languageSwitch}>
+  <Pressable
+    style={[styles.languageButton, language === 'fr' && styles.languageButtonActive]}
+    onPress={() => setLanguage('fr')}
+  >
+    <Text style={[styles.languageButtonText, language === 'fr' && styles.languageButtonTextActive]}>
+      FR
+    </Text>
+  </Pressable>
+  <Pressable
+    style={[styles.languageButton, language === 'en' && styles.languageButtonActive]}
+    onPress={() => setLanguage('en')}
+  >
+    <Text style={[styles.languageButtonText, language === 'en' && styles.languageButtonTextActive]}>
+      EN
+    </Text>
+  </Pressable>
+</View>
+```
+
+### Fichiers modifiés
+
+**App.tsx** :
+- Ajout `I18nProvider` comme wrapper externe
+
+**Screens traduits** :
+- `LinkScreen.tsx`
+- `PhoneOtpScreen.tsx`
+- `ProfileFormScreen.tsx`
+- `ProfileCustomizeScreen.tsx`
+- `HomeScreen.tsx`
+- `WalletScreen.tsx`
+- `ProfileScreen.tsx` (+ switch langue)
+
+**Components traduits** :
+- `QuickActionsCard.tsx` (utilise `labelKey` au lieu de `label`)
+- `AddGiftModal.tsx` (utilise `titleKey`, `descriptionKey`)
+- `IdentityVerificationCard.tsx` (fonction `getStatusInfo` accepte `t`)
+
+**Navigation traduite** :
+- `AppTabs.tsx` (labels des onglets via `t('tabs.*')`)
+
+### Comment ajouter une traduction
+
+1. **Ajouter la clé dans `fr.ts`** :
+```typescript
+export const fr = {
+  mySection: {
+    myKey: 'Ma traduction en français',
+  },
+};
+```
+
+2. **Ajouter la clé dans `en.ts`** :
+```typescript
+export const en = {
+  mySection: {
+    myKey: 'My English translation',
+  },
+};
+```
+
+3. **Utiliser dans le composant** :
+```typescript
+const { t } = useI18n();
+<Text>{t('mySection.myKey')}</Text>
+```
+
+### Tests
+
+**Switch langue** :
+1. Ouvrir ProfileScreen
+2. Vérifier boutons FR/EN affichés
+3. Cliquer sur EN → toute l'app passe en anglais
+4. Relancer l'app → langue EN persistée
+5. Cliquer sur FR → retour en français
+
+**Traductions** :
+1. Vérifier HomeScreen : "Bienvenue" vs "Welcome"
+2. Vérifier tabs : "Accueil" vs "Home"
+3. Vérifier WalletScreen : "Solde disponible" vs "Available balance"
+4. Vérifier modals et boutons
+
+---
+
+## CHANGELOG
+
+### 2026-01-19 - Étape 14 Complétée
+
+**Mobile - Services i18n** :
+- `src/services/i18n/i18nStorage.ts` - Persistance SecureStore
+- `src/services/i18n/i18n.ts` - Fonction translate avec interpolation
+- `src/services/i18n/I18nContext.tsx` - React Context + Provider + hook
+- `src/services/i18n/locales/fr.ts` - Dictionnaire français complet
+- `src/services/i18n/locales/en.ts` - Dictionnaire anglais complet
+- `src/services/i18n/locales/index.ts` - Export locales
+- `src/services/i18n/index.ts` - Export centralisé
+
+**Mobile - App.tsx** :
+- Ajout `I18nProvider` comme wrapper externe
+
+**Mobile - Screens traduits** :
+- Tous les écrans auth (Link, PhoneOtp, ProfileForm, ProfileCustomize)
+- Tous les écrans app (Home, Wallet, Profile)
+- ProfileScreen avec switch langue FR/EN
+
+**Mobile - Components traduits** :
+- QuickActionsCard (labelKey)
+- AddGiftModal (titleKey, descriptionKey)
+- IdentityVerificationCard (getStatusInfo avec t)
+
+**Mobile - Navigation** :
+- AppTabs labels traduits via t('tabs.*')
+
+---
+
+**FIN DE L'ÉTAPE 14**
+
+---
+
+## BUGFIXES - 2026-01-19
+
+### BUGFIX 1 — Paiements Stripe non bloqués
+
+**Problème** : Les daddy's ne pouvaient pas payer un cadeau si la baby n'avait pas terminé l'onboarding Stripe (stripeChargesEnabled === false).
+
+**Solution** :
+- Suppression du blocage basé sur `stripeChargesEnabled` dans `stripe.service.js`
+- Les paiements sont désormais autorisés tant que `stripeConnectAccountId` existe
+- Stripe gère les fonds en attente jusqu'à ce que l'onboarding soit complété
+- Seul le cas "pas de compte Connect" retourne une erreur 409
+
+**Fichier modifié** :
+- `backend-api/src/services/stripe.service.js` - Suppression du check `stripeChargesEnabled` dans `createCheckoutSession` et `createPublicCheckoutSession`
+
+**Comportement attendu** :
+- ✅ Baby avec `stripeConnectAccountId` mais onboarding incomplet → paiement OK
+- ✅ Baby sans `stripeConnectAccountId` → erreur 409 "paiements non configurés"
+- ✅ Retraits (wallet/payout) toujours bloqués si onboarding incomplet
+
+### BUGFIX 2 — Édition des cadeaux actifs
+
+**Problème** : Impossible de modifier un cadeau actif (non financé) depuis l'app mobile.
+
+**Solution** :
+- Ajout de la vérification `isPurchased` dans `updateGift` backend (erreur 409 si déjà financé)
+- Création de l'écran `EditGiftScreen.tsx` pour l'édition
+- Ajout du bouton "Modifier" dans `GiftDetailScreen.tsx`
+- Navigation EditGift ajoutée dans GiftStack
+
+**Fichiers backend modifiés** :
+- `backend-api/src/services/gift.service.js` - Ajout check `isPurchased` dans `updateGift`
+
+**Fichiers mobile créés** :
+- `mobile-app/src/screens/app/gifts/EditGiftScreen.tsx`
+
+**Fichiers mobile modifiés** :
+- `mobile-app/src/screens/app/gifts/GiftDetailScreen.tsx` - Ajout bouton Modifier + i18n
+- `mobile-app/src/navigation/GiftStack.tsx` - Ajout route EditGift
+- `mobile-app/src/types/navigation.ts` - Ajout type EditGift
+- `mobile-app/src/services/i18n/locales/fr.ts` - Ajout traductions édition
+- `mobile-app/src/services/i18n/locales/en.ts` - Ajout traductions édition
+
+**Comportement attendu** :
+- ✅ Cadeau actif → bouton "Modifier" visible → édition OK
+- ✅ Cadeau financé → bouton "Modifier" caché
+- ✅ API updateGift sur cadeau financé → erreur 409
+- ✅ Rechargement des données après retour de l'écran d'édition
+
+---
+
+### BUGFIX 3 — Flow Checkout Public Complet (2026-01-19)
+
+**Problème** : Plusieurs bugs dans le flow de paiement public sur `humdaddy.com/<username>` :
+1. Le message du donateur était requis mais devrait être optionnel
+2. Le mapping des champs `pseudo`/`email` du web-app vers `donorPseudo`/`donorEmail` du backend ne fonctionnait pas
+3. L'endpoint `getCheckoutSessionInfo` pouvait retourner `undefined` si le token n'était pas généré
+4. L'upload de photo donor n'avait pas de route `/public/donor-photo` (sans giftId)
+
+**Solutions appliquées** :
+
+**Backend - checkout.controller.js** :
+- `submitPublicDonorInfo` accepte maintenant `pseudo`, `email`, `message` (web-app) en plus de `donorPseudo`, `donorEmail`, `donorMessage` (legacy)
+- Le message est désormais optionnel (défaut: chaîne vide)
+- Suppression du try/catch qui avalait les erreurs
+
+**Backend - stripe.service.js** :
+- `getCheckoutSessionInfo` corrigé pour toujours retourner le `donorClaimToken`
+- Si le token n'existe pas (transaction ancienne), il est généré automatiquement
+- Si le paiement Stripe est confirmé mais webhook pas encore traité, la transaction est marquée comme succeeded et le token est généré
+- Suppression du try/catch qui retournait `undefined`
+
+**Backend - upload.controller.js** :
+- `uploadDonorPhoto` modifié pour supporter les deux routes :
+  - `POST /v1/uploads/gifts/:giftId/donor-photo` (avec giftId)
+  - `POST /v1/uploads/public/donor-photo` (sans giftId, trouve le gift via donorClaimToken)
+
+**Backend - upload.routes.js** :
+- Ajout de la route `POST /v1/uploads/public/donor-photo`
+
+**Web-app - DonorInfoForm.tsx** :
+- Ajout de la prévisualisation de la photo sélectionnée
+- Amélioration du label pour l'option photo payée
+- Style amélioré du bouton de sélection de fichier
+
+**Fichiers backend modifiés** :
+- `backend-api/src/controllers/checkout.controller.js`
+- `backend-api/src/services/stripe.service.js`
+- `backend-api/src/controllers/upload.controller.js`
+- `backend-api/src/routes/v1/upload.routes.js`
+
+**Fichiers web-app modifiés** :
+- `web-app/src/components/public/DonorInfoForm.tsx`
+
+**Flow complet vérifié** :
+1. ✅ Page publique `humdaddy.com/<username>` affiche les cadeaux
+2. ✅ Clic "Financer" ouvre FundGiftModal avec option photo (+50€)
+3. ✅ Clic "Payer" crée session Stripe et redirige vers checkout
+4. ✅ Paiement Stripe réussi → webhook génère `donorClaimToken`
+5. ✅ Retour sur page avec `?session_id=...` → affiche DonorInfoForm
+6. ✅ `GET /v1/checkout/public/session` retourne le `donorClaimToken`
+7. ✅ Soumission infos (pseudo, email, message optionnel) → OK
+8. ✅ Si option photo payée : upload + soumission URL → OK
+9. ✅ Baby voit les infos donateur dans GiftDetailScreen
+
+---
+
+**FIN DES BUGFIXES**
+
+---
+
+## ÉTAPE 16 - CORRECTIONS PRODUIT
+
+### Résumé
+
+Implémentation de corrections et améliorations produit :
+- Limite de 4 cadeaux actifs par baby
+- Affichage des transactions dans le wallet avec détails
+- Section "Derniers cadeaux financés" sur Home
+- Bouton partage sur les cadeaux
+- Icônes sociales sur le profil public (web-app)
+- Gestion du paramètre `?gift=` dans l'URL profil public
+- Masquage de la bannière dans l'app mobile
+
+### Limite 4 cadeaux actifs
+
+**Backend - gift.service.js** :
+- Ajout constante `MAX_ACTIVE_GIFTS = 4`
+- Ajout fonction `countActiveGifts(babyId)` - compte les cadeaux non supprimés et non achetés
+- `createGift()` vérifie la limite avant création et retourne erreur 403 si dépassée
+- Ajout `getGiftStats()` retournant `{ activeCount, maxActive, canCreate }`
+
+**Backend - Routes** :
+- `GET /v1/gifts/me/stats` - Retourne les stats cadeaux
+
+**Mobile - giftApi.ts** :
+```typescript
+interface GiftStats {
+  activeCount: number;
+  maxActive: number;
+  canCreate: boolean;
+}
+
+giftApi.getStats(): Promise<GiftStats>
+```
+
+**Mobile - CreateGiftPhotosScreen.tsx** :
+- Vérification de la limite au montage
+- Si `!canCreate` → Alert + navigation back
+- Affichage du compteur `activeCount / maxActive`
+
+### Transactions Wallet
+
+**Backend - wallet.service.js** :
+- Ajout `listTransactions(user, { limit, cursor })` - Liste les transactions avec pagination
+- Ajout `getTransactionById(user, transactionId)` - Détail d'une transaction
+
+**Backend - Routes** :
+- `GET /v1/wallet/me/transactions` - Liste transactions
+- `GET /v1/wallet/me/transactions/:id` - Détail transaction
+
+**Mobile - walletApi.ts** :
+```typescript
+interface Transaction {
+  id: string;
+  amount: number;
+  amountNet: number;
+  feeAmount: number;
+  optionPhotoPaid: boolean;
+  donorPseudo?: string;
+  donorPhotoUrl?: string;
+  gift?: { id: string; title: string; imageUrl?: string; };
+  createdAt: string;
+}
+
+walletApi.listTransactions(params): Promise<TransactionsResponse>
+walletApi.getTransaction(transactionId): Promise<Transaction>
+```
+
+**Mobile - Navigation** :
+- Création de `WalletStack.tsx` avec écrans `WalletMain` et `TransactionDetail`
+- `TransactionDetailScreen.tsx` affiche le détail complet d'une transaction
+
+**Mobile - WalletScreen.tsx** :
+- Clic sur transaction "received" → navigation vers TransactionDetail
+
+### Home - Derniers financés
+
+**Backend - gift.service.js** :
+- Ajout `getRecentFundedGifts(babyId, limit)` - Retourne les cadeaux récemment financés
+
+**Backend - Routes** :
+- `GET /v1/gifts/me/recent-funded?limit=5` - Liste derniers cadeaux financés
+
+**Mobile - giftApi.ts** :
+```typescript
+interface FundedGift {
+  _id: string;
+  title: string;
+  mediaUrls?: string[];
+  mainMediaIndex?: number;
+  transaction?: {
+    donorPseudo?: string;
+    donorMessage?: string;
+    donorPhotoUrl?: string;
+  };
+}
+
+giftApi.getRecentFunded(limit): Promise<FundedGift[]>
+```
+
+**Mobile - HomeScreen.tsx** :
+- Section "Derniers cadeaux financés" avec liste cliquable
+- Navigation vers GiftDetail au clic
+- Affichage photo donateur + message si présents
+
+### Partage cadeau
+
+**Mobile - GiftDetailScreen.tsx** :
+- Import `Share` de React Native
+- Import `useAuth` pour récupérer le username
+- Fonction `handleShare()` génère l'URL `https://humdaddy.com/<username>?gift=<giftId>`
+- Bouton "Partager" toujours visible
+
+### Web-app - Profil social
+
+**Web-app - SocialLinks.tsx** :
+- Ajout d'icônes SVG pour chaque réseau social (OnlyFans, MYM, Instagram, X, Twitch)
+- Couleurs spécifiques par plateforme
+- Style amélioré avec hover effects
+
+### Web-app - Paramètre ?gift=
+
+**Web-app - [username]/page.tsx** :
+- Lecture du paramètre `?gift=` via `useSearchParams()`
+- Si présent et cadeau trouvé et non acheté → ouvre FundGiftModal automatiquement
+- Clear du paramètre URL après ouverture
+
+### Masquage bannière
+
+**Mobile - ProfileCustomizeScreen.tsx** (onboarding) :
+- Suppression du state `bannerAsset`
+- Suppression du picker bannière
+- Suppression de l'upload bannière
+- Suppression des styles bannière inutilisés
+
+**Mobile - ProfileScreen.tsx** (profil) :
+- Suppression du state `uploadingBanner`
+- Modification de `pickImage()` et `uploadImage()` pour ne plus gérer 'banner'
+- Remplacement de la section Banner+Avatar par Avatar seul (centré)
+- Nouveau style `avatarContainerStandalone` (120x120)
+
+### Fichiers modifiés
+
+**Backend** :
+- `backend-api/src/services/gift.service.js`
+- `backend-api/src/controllers/gift.controller.js`
+- `backend-api/src/routes/v1/gift.routes.js`
+- `backend-api/src/services/wallet.service.js`
+- `backend-api/src/controllers/wallet.controller.js`
+- `backend-api/src/routes/v1/wallet.routes.js`
+
+**Mobile** :
+- `mobile-app/src/services/api/giftApi.ts`
+- `mobile-app/src/services/api/walletApi.ts`
+- `mobile-app/src/screens/app/gifts/CreateGiftPhotosScreen.tsx`
+- `mobile-app/src/screens/app/gifts/GiftDetailScreen.tsx`
+- `mobile-app/src/screens/app/HomeScreen.tsx`
+- `mobile-app/src/screens/app/WalletScreen.tsx`
+- `mobile-app/src/screens/app/wallet/TransactionDetailScreen.tsx` (nouveau)
+- `mobile-app/src/screens/app/ProfileScreen.tsx`
+- `mobile-app/src/screens/auth/ProfileCustomizeScreen.tsx`
+- `mobile-app/src/navigation/WalletStack.tsx` (nouveau)
+- `mobile-app/src/navigation/AppTabs.tsx`
+- `mobile-app/src/types/navigation.ts`
+- `mobile-app/src/services/i18n/locales/fr.ts`
+- `mobile-app/src/services/i18n/locales/en.ts`
+
+**Web-app** :
+- `web-app/src/components/public/SocialLinks.tsx`
+- `web-app/src/app/[username]/page.tsx`
+
+---
+
+## CHANGELOG
+
+### 2026-01-20 - Étape 16 Complétée
+
+**Backend - Gift** :
+- Ajout limite 4 cadeaux actifs (`MAX_ACTIVE_GIFTS`)
+- Ajout `countActiveGifts()`, `getGiftStats()`, `getRecentFundedGifts()`
+- Routes `/me/stats`, `/me/recent-funded`
+
+**Backend - Wallet** :
+- Ajout `listTransactions()`, `getTransactionById()`
+- Routes `/me/transactions`, `/me/transactions/:id`
+
+**Mobile - Gift** :
+- Vérification limite dans CreateGiftPhotosScreen
+- Interface `GiftStats`, `FundedGift`
+- Bouton partage dans GiftDetailScreen
+
+**Mobile - Wallet** :
+- Création WalletStack avec TransactionDetailScreen
+- Navigation vers détail transaction
+
+**Mobile - Home** :
+- Section "Derniers cadeaux financés"
+- Navigation vers détail cadeau
+
+**Mobile - Profil** :
+- Suppression bannière (onboarding + profil)
+- Avatar centré et agrandi
+
+**Web-app** :
+- Icônes sociales avec couleurs
+- Gestion paramètre `?gift=` pour ouverture auto modal
+
+---
+
+**FIN DE L'ÉTAPE 16**
+
+---
+
+## ÉTAPE CORRECTION — Fiche Produit + Style "Déjà Financé" + Top Daddy
+
+### Résumé
+
+Corrections et améliorations du profil public web-app :
+- Fix Next.js Suspense pour useSearchParams (erreur build)
+- Fiche produit accessible via `?gift=<giftId>`
+- Overlay "déjà financé" sur les cartes cadeaux
+- Bloc "Top Daddy" (Top 5 supporters)
+
+### Fix Next.js Suspense
+
+**Problème** : `useSearchParams() should be wrapped in a suspense boundary`
+
+**Solution** :
+- Création de `PublicProfileClient.tsx` - composant client avec toute la logique
+- Modification de `page.tsx` - wrapper Suspense autour de PublicProfileClient
+
+**web-app/src/app/[username]/page.tsx** :
+```tsx
+import { Suspense } from 'react';
+import PublicProfileClient from './PublicProfileClient';
+
+export default function PublicProfilePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <PublicProfileClient />
+    </Suspense>
+  );
+}
+```
+
+### Fiche Produit (ProductDetail)
+
+**web-app/src/components/public/ProductDetail.tsx** (nouveau) :
+- Galerie avec image principale + thumbnails cliquables
+- Prix, description, lien externe
+- Bouton CTA "Financer ce caprice"
+- Bouton fermer
+
+**Fonctionnalités** :
+- URL: `/{username}?gift=<giftId>` ouvre la fiche produit
+- Scroll automatique vers la fiche
+- Navigation URL sans rechargement (router.push/replace)
+
+**PublicProfileClient.tsx** :
+```typescript
+// State
+const [viewingGift, setViewingGift] = useState<Gift | null>(null);
+const productDetailRef = useRef<HTMLDivElement>(null);
+
+// Handler pour voir un cadeau
+const handleViewGift = (gift: Gift) => {
+  setViewingGift(gift);
+  router.push(`/${username}?gift=${gift._id}`, { scroll: false });
+  setTimeout(() => {
+    productDetailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+};
+
+// Handler pour fermer
+const handleCloseProductDetail = () => {
+  setViewingGift(null);
+  router.replace(`/${username}`, { scroll: false });
+};
+```
+
+### Overlay "Déjà Financé"
+
+**web-app/src/components/public/GiftCard.tsx** modifié :
+- Suppression du bloc supplémentaire pour cadeaux financés
+- Ajout d'un overlay sur l'image avec texte "{donorPseudo} a offert ce cadeau"
+- Hauteur de carte identique (financé ou non)
+- Bouton "Déjà financé" désactivé avec `cursor-not-allowed`
+- Prop `onView` ajoutée pour navigation vers fiche produit
+
+```tsx
+{isPurchased && (
+  <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+    <p className="text-base font-semibold text-white">
+      {gift.purchasedBy?.donorPseudo || 'Un daddy'} a offert ce cadeau
+    </p>
+  </div>
+)}
+```
+
+### Top Daddy (Top 5 Supporters)
+
+**web-app/src/components/public/TopDaddyCard.tsx** (nouveau) :
+- Affiche les 5 meilleurs supporters
+- Trié par total € desc, puis count desc (backend)
+- Badge "VIP" pour le #1
+- Style différencié pour le premier (bg-accent/10, border accent)
+
+**Interface Supporter** :
+```typescript
+interface Supporter {
+  name: string;   // donorPseudo
+  total: number;  // total en centimes
+  count: number;  // nombre de cadeaux
+}
+```
+
+**Backend** : Déjà implémenté dans `getPublicWishlist()` - retourne `supportersTop`
+
+### Fichiers Créés/Modifiés
+
+**Web-app** :
+- `web-app/src/app/[username]/page.tsx` - Wrapper Suspense
+- `web-app/src/app/[username]/PublicProfileClient.tsx` - Composant client (nouveau)
+- `web-app/src/components/public/ProductDetail.tsx` - Fiche produit (nouveau)
+- `web-app/src/components/public/TopDaddyCard.tsx` - Top Daddy (nouveau)
+- `web-app/src/components/public/GiftCard.tsx` - Overlay + onView prop
+
+---
+
+## CHANGELOG
+
+### 2026-01-20 - Étape Correction Complétée
+
+**Web-app - Suspense Fix** :
+- Création PublicProfileClient.tsx avec toute la logique client
+- page.tsx simplifié avec Suspense boundary
+
+**Web-app - Fiche Produit** :
+- ProductDetail.tsx avec galerie, prix, description, CTA
+- Navigation URL via ?gift= param
+- Scroll automatique vers la fiche
+
+**Web-app - Overlay Déjà Financé** :
+- GiftCard modifié pour overlay sur image
+- Même hauteur pour toutes les cartes
+- Ajout prop onView pour navigation
+
+**Web-app - Top Daddy** :
+- TopDaddyCard.tsx affichant Top 5 supporters
+- Badge VIP pour le #1
+- Utilise supportersTop du backend
+
+---
+
+**FIN DE L'ÉTAPE CORRECTION**

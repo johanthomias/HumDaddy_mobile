@@ -14,6 +14,7 @@ import { AuthStackParamList } from '../../types/navigation';
 import { colors } from '../../theme/colors';
 import { otpApi, getErrorMessage } from '../../services/api';
 import { useAuth } from '../../services/auth/AuthContext';
+import { useI18n } from '../../services/i18n';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'PhoneOtp'>;
 
@@ -29,6 +30,7 @@ function isProfileComplete(user?: {
 }
 
 export default function PhoneOtpScreen({ navigation, route }: Props) {
+  const { t } = useI18n();
   const { mode = 'signup', prefilledUsername } = route.params || {};
   const { setAuthenticated, completeOnboarding } = useAuth();
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -39,7 +41,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
 
   const handleRequestOtp = async () => {
     if (!phoneNumber.trim()) {
-      setError('Veuillez entrer votre numéro de téléphone');
+      setError(t('validation.required'));
       return;
     }
 
@@ -47,17 +49,15 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
     setError('');
 
     try {
-      console.log("ldldl", phoneNumber)
       await otpApi.requestOtp(phoneNumber.trim());
       setShowOtpInput(true);
     } catch (err) {
       const message = getErrorMessage(err);
-      console.log(err);
       // Si backend non joignable, on permet quand même de continuer (mode stub)
       if (message.includes('Impossible de joindre le serveur')) {
         console.warn('[PhoneOtpScreen] Backend non joignable, mode stub activé');
         setShowOtpInput(true);
-        setError('Mode hors-ligne : utilisez le code 000000');
+        setError(t('auth.otp.offlineMode'));
       } else {
         setError(message);
       }
@@ -68,7 +68,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
 
   const handleVerifyOtp = async () => {
     if (!otpCode.trim()) {
-      setError('Veuillez entrer le code OTP');
+      setError(t('validation.required'));
       return;
     }
 
@@ -113,14 +113,14 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
     >
       <View style={styles.content}>
         <Text style={styles.title}>
-          {mode === 'login' ? 'Connexion' : 'Vérification'}
+          {mode === 'login' ? t('auth.login.title') : t('auth.otp.title')}
         </Text>
         <Text style={styles.subtitle}>
           {showOtpInput
-            ? 'Entrez le code reçu par SMS'
+            ? t('auth.otp.subtitle')
             : mode === 'login'
-              ? 'Entrez votre numéro pour vous connecter'
-              : 'Entrez votre numéro de téléphone'}
+              ? t('auth.login.subtitle')
+              : t('auth.otp.phoneLabel')}
         </Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
@@ -129,7 +129,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
           <>
             <TextInput
               style={styles.input}
-              placeholder="+33 6 12 34 56 78"
+              placeholder={t('auth.otp.phonePlaceholder')}
               placeholderTextColor={colors.muted}
               value={phoneNumber}
               onChangeText={setPhoneNumber}
@@ -146,7 +146,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
               {isLoading ? (
                 <ActivityIndicator size={20} color={colors.text} />
               ) : (
-                <Text style={styles.buttonText}>Recevoir le code</Text>
+                <Text style={styles.buttonText}>{t('auth.otp.sendCode')}</Text>
               )}
             </Pressable>
           </>
@@ -154,7 +154,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
           <>
             <TextInput
               style={styles.input}
-              placeholder="000000"
+              placeholder={t('auth.otp.codePlaceholder')}
               placeholderTextColor={colors.muted}
               value={otpCode}
               onChangeText={setOtpCode}
@@ -171,7 +171,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
               {isLoading ? (
                 <ActivityIndicator size={20} color={colors.text} />
               ) : (
-                <Text style={styles.buttonText}>Vérifier</Text>
+                <Text style={styles.buttonText}>{t('auth.otp.verify')}</Text>
               )}
             </Pressable>
 
@@ -184,7 +184,7 @@ export default function PhoneOtpScreen({ navigation, route }: Props) {
               }}
               disabled={isLoading}
             >
-              <Text style={styles.linkText}>Changer de numéro</Text>
+              <Text style={styles.linkText}>{t('auth.otp.resend')}</Text>
             </Pressable>
           </>
         )}

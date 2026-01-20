@@ -18,35 +18,32 @@ import { colors } from '../../theme/colors';
 import { useAuth } from '../../services/auth/AuthContext';
 import { userApi, uploadApi, getErrorMessage } from '../../services/api';
 import { getToken } from '../../services/auth/authStorage';
+import { useI18n } from '../../services/i18n';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileCustomize'>;
 
 export default function ProfileCustomizeScreen({ route }: Props) {
+  const { t } = useI18n();
   const { publicName, is18Plus, prefilledUsername } = route.params || {};
   const { completeOnboarding, setAuthenticated } = useAuth();
 
   const [username, setUsername] = useState(prefilledUsername || '');
   const [bio, setBio] = useState('');
   const [avatarAsset, setAvatarAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [bannerAsset, setBannerAsset] = useState<ImagePicker.ImagePickerAsset | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [uploadStatus, setUploadStatus] = useState('');
   const [error, setError] = useState('');
 
-  const pickImage = async (type: 'avatar' | 'banner') => {
+  const pickAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
-      aspect: type === 'avatar' ? [1, 1] : [16, 9],
+      aspect: [1, 1],
       quality: 0.8,
     });
 
     if (!result.canceled && result.assets[0]) {
-      if (type === 'avatar') {
-        setAvatarAsset(result.assets[0]);
-      } else {
-        setBannerAsset(result.assets[0]);
-      }
+      setAvatarAsset(result.assets[0]);
     }
   };
 
@@ -59,13 +56,11 @@ export default function ProfileCustomizeScreen({ route }: Props) {
 
     let avatarUrl: string | undefined;
     let avatarPathname: string | undefined;
-    let bannerUrl: string | undefined;
-    let bannerPathname: string | undefined;
 
     // Upload avatar si sélectionné
     if (avatarAsset && token) {
       try {
-        setUploadStatus('Upload avatar...');
+        setUploadStatus(t('auth.profileCustomize.uploadingAvatar'));
         const result = await uploadApi.uploadProfileAvatar(avatarAsset);
         avatarUrl = result.url;
         avatarPathname = result.pathname;
@@ -76,24 +71,10 @@ export default function ProfileCustomizeScreen({ route }: Props) {
       }
     }
 
-    // Upload banner si sélectionné
-    if (bannerAsset && token) {
-      try {
-        setUploadStatus('Upload bannière...');
-        const result = await uploadApi.uploadProfileBanner(bannerAsset);
-        bannerUrl = result.url;
-        bannerPathname = result.pathname;
-      } catch (err) {
-        const message = getErrorMessage(err);
-        console.warn('[ProfileCustomize] Erreur upload banner:', message);
-        // Continue sans bloquer
-      }
-    }
-
     // Mettre à jour le profil via API si on a un token
     if (token) {
       try {
-        setUploadStatus('Sauvegarde profil...');
+        setUploadStatus(t('common.saving'));
         await userApi.updateMe({
           publicName,
           is18Plus,
@@ -101,8 +82,6 @@ export default function ProfileCustomizeScreen({ route }: Props) {
           bio: bio.trim() || undefined,
           avatarUrl,
           avatarPathname,
-          bannerUrl,
-          bannerPathname,
         });
       } catch (err) {
         const message = getErrorMessage(err);
@@ -121,7 +100,7 @@ export default function ProfileCustomizeScreen({ route }: Props) {
       }
       await completeOnboarding();
     } catch (err) {
-      setError('Erreur lors de la finalisation. Réessayez.');
+      setError(t('errors.generic'));
       setIsLoading(false);
     }
   };
@@ -135,35 +114,17 @@ export default function ProfileCustomizeScreen({ route }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Personnaliser</Text>
-        <Text style={styles.subtitle}>Optionnel - vous pouvez compléter plus tard</Text>
+        <Text style={styles.title}>{t('auth.profileCustomize.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.profileCustomize.subtitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Banner Picker */}
-        <View style={styles.imageSection}>
-          <Text style={styles.label}>Bannière</Text>
-          <Pressable
-            style={styles.bannerPicker}
-            onPress={() => pickImage('banner')}
-            disabled={isLoading}
-          >
-            {bannerAsset ? (
-              <Image source={{ uri: bannerAsset.uri }} style={styles.bannerPreview} />
-            ) : (
-              <View style={styles.bannerPlaceholder}>
-                <Text style={styles.placeholderText}>+ Ajouter une bannière</Text>
-              </View>
-            )}
-          </Pressable>
-        </View>
-
         {/* Avatar Picker */}
         <View style={styles.imageSection}>
-          <Text style={styles.label}>Photo de profil</Text>
+          <Text style={styles.label}>{t('auth.profileCustomize.avatarHint')}</Text>
           <Pressable
             style={styles.avatarPicker}
-            onPress={() => pickImage('avatar')}
+            onPress={pickAvatar}
             disabled={isLoading}
           >
             {avatarAsset ? (
@@ -177,10 +138,10 @@ export default function ProfileCustomizeScreen({ route }: Props) {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nom d'utilisateur</Text>
+          <Text style={styles.label}>{t('auth.profileCustomize.usernameLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="@username (optionnel)"
+            placeholder={t('auth.profileCustomize.usernamePlaceholder')}
             placeholderTextColor={colors.muted}
             value={username}
             onChangeText={setUsername}
@@ -191,10 +152,10 @@ export default function ProfileCustomizeScreen({ route }: Props) {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Bio</Text>
+          <Text style={styles.label}>{t('auth.profileCustomize.bioLabel')}</Text>
           <TextInput
             style={[styles.input, styles.bioInput]}
-            placeholder="Décrivez-vous en quelques mots (optionnel)"
+            placeholder={t('auth.profileCustomize.bioPlaceholder')}
             placeholderTextColor={colors.muted}
             value={bio}
             onChangeText={setBio}
@@ -217,7 +178,7 @@ export default function ProfileCustomizeScreen({ route }: Props) {
           {isLoading ? (
             <ActivityIndicator size={20} color={colors.text} />
           ) : (
-            <Text style={styles.buttonText}>Terminer</Text>
+            <Text style={styles.buttonText}>{t('auth.profileCustomize.finish')}</Text>
           )}
         </Pressable>
       </ScrollView>
@@ -262,28 +223,6 @@ const styles = StyleSheet.create({
     color: colors.text,
     marginBottom: 8,
     fontWeight: '500',
-  },
-  bannerPicker: {
-    width: '100%',
-    height: 120,
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  bannerPreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  bannerPlaceholder: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: colors.primaryLight,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.muted,
-    borderStyle: 'dashed',
-    borderRadius: 12,
   },
   avatarPicker: {
     width: 100,

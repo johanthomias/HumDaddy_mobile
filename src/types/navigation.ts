@@ -26,13 +26,23 @@ export type GiftStackParamList = {
   GiftDetail: {
     giftId: string;
   };
+  EditGift: {
+    giftId: string;
+  };
+};
+
+export type WalletStackParamList = {
+  WalletMain: undefined;
+  TransactionDetail: {
+    transactionId: string;
+  };
 };
 
 export type AppTabsParamList = {
   Home: undefined;
   Gifts: NavigatorScreenParams<GiftStackParamList>;
   Add: undefined;
-  Wallet: undefined;
+  Wallet: NavigatorScreenParams<WalletStackParamList>;
   Profile: undefined;
 };
 

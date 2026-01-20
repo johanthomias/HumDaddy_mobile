@@ -13,10 +13,12 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../types/navigation';
 import { colors } from '../../theme/colors';
+import { useI18n } from '../../services/i18n';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ProfileForm'>;
 
 export default function ProfileFormScreen({ navigation, route }: Props) {
+  const { t } = useI18n();
   const { prefilledUsername } = route.params || {};
 
   const [publicName, setPublicName] = useState('');
@@ -25,7 +27,7 @@ export default function ProfileFormScreen({ navigation, route }: Props) {
 
   const handleContinue = () => {
     if (!publicName.trim()) {
-      setError('Veuillez entrer votre nom');
+      setError(t('auth.profileForm.nameRequired'));
       return;
     }
 
@@ -46,16 +48,16 @@ export default function ProfileFormScreen({ navigation, route }: Props) {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Créer votre profil</Text>
-        <Text style={styles.subtitle}>Quelques informations pour commencer</Text>
+        <Text style={styles.title}>{t('auth.profileForm.title')}</Text>
+        <Text style={styles.subtitle}>{t('auth.profileForm.subtitle')}</Text>
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Nom public</Text>
+          <Text style={styles.label}>{t('auth.profileForm.publicNameLabel')}</Text>
           <TextInput
             style={styles.input}
-            placeholder="Comment voulez-vous être appelé ?"
+            placeholder={t('auth.profileForm.publicNamePlaceholder')}
             placeholderTextColor={colors.muted}
             value={publicName}
             onChangeText={(text) => {
@@ -68,8 +70,8 @@ export default function ProfileFormScreen({ navigation, route }: Props) {
 
         <View style={styles.switchRow}>
           <View style={styles.switchLabel}>
-            <Text style={styles.label}>J'ai plus de 18 ans</Text>
-            <Text style={styles.hint}>Requis pour certaines fonctionnalités</Text>
+            <Text style={styles.label}>{t('auth.profileForm.ageConfirmation')}</Text>
+            <Text style={styles.hint}>{t('auth.profileForm.ageRequired')}</Text>
           </View>
           <Switch
             value={is18Plus}
@@ -80,7 +82,7 @@ export default function ProfileFormScreen({ navigation, route }: Props) {
         </View>
 
         <Pressable style={styles.button} onPress={handleContinue}>
-          <Text style={styles.buttonText}>Continuer</Text>
+          <Text style={styles.buttonText}>{t('auth.profileForm.continue')}</Text>
         </Pressable>
       </ScrollView>
     </KeyboardAvoidingView>

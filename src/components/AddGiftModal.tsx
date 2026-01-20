@@ -8,12 +8,13 @@ import {
   TouchableWithoutFeedback,
 } from 'react-native';
 import { colors } from '../theme/colors';
+import { useI18n } from '../services/i18n';
 
 interface GiftType {
   id: string;
   icon: string;
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   disabled?: boolean;
 }
 
@@ -27,21 +28,21 @@ const giftTypes: GiftType[] = [
   {
     id: 'gift',
     icon: '🎁',
-    title: 'Cadeau',
-    description: 'Un cadeau physique ou digital pour vos fans',
+    titleKey: 'addGiftModal.gift.title',
+    descriptionKey: 'addGiftModal.gift.description',
   },
   {
     id: 'giftcard',
     icon: '🎟️',
-    title: 'Carte cadeau',
-    description: 'Une carte cadeau Amazon, Steam, etc.',
+    titleKey: 'addGiftModal.giftCard.title',
+    descriptionKey: 'addGiftModal.giftCard.description',
     disabled: true,
   },
   {
     id: 'paymentcard',
     icon: '💳',
-    title: 'Carte de paiement',
-    description: 'Contribution directe via carte bancaire',
+    titleKey: 'addGiftModal.paymentCard.title',
+    descriptionKey: 'addGiftModal.paymentCard.description',
     disabled: true,
   },
 ];
@@ -51,6 +52,8 @@ export default function AddGiftModal({
   onClose,
   onSelectType,
 }: AddGiftModalProps) {
+  const { t } = useI18n();
+
   const handleSelect = (typeId: string) => {
     onSelectType(typeId);
     onClose();
@@ -68,9 +71,9 @@ export default function AddGiftModal({
           <TouchableWithoutFeedback>
             <View style={styles.container}>
               <View style={styles.handle} />
-              <Text style={styles.title}>Ajouter un cadeau</Text>
+              <Text style={styles.title}>{t('addGiftModal.title')}</Text>
               <Text style={styles.subtitle}>
-                Choisissez le type de cadeau que vous souhaitez créer
+                {t('addGiftModal.gift.description')}
               </Text>
 
               {giftTypes.map((type) => (
@@ -99,7 +102,7 @@ export default function AddGiftModal({
                         type.disabled && styles.textDisabled,
                       ]}
                     >
-                      {type.title}
+                      {t(type.titleKey)}
                     </Text>
 
                     <Text
@@ -108,7 +111,7 @@ export default function AddGiftModal({
                         type.disabled && styles.textDisabled,
                       ]}
                     >
-                      {type.description}
+                      {t(type.descriptionKey)}
                     </Text>
 
                   </View>
@@ -125,7 +128,7 @@ export default function AddGiftModal({
               ))}
 
               <Pressable style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelText}>Annuler</Text>
+                <Text style={styles.cancelText}>{t('common.cancel')}</Text>
               </Pressable>
             </View>
           </TouchableWithoutFeedback>

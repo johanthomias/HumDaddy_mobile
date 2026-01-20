@@ -57,6 +57,43 @@ export interface UpdateGiftPayload {
 }
 
 /**
+ * Stats des cadeaux
+ */
+export interface GiftStats {
+  activeCount: number;
+  maxActive: number;
+  canCreate: boolean;
+}
+
+/**
+ * Cadeau financé avec infos transaction
+ */
+export interface FundedGift {
+  _id: string;
+  title: string;
+  mediaUrls: string[];
+  mainMediaIndex: number;
+  price: number;
+  currency: string;
+  purchasedAt: string;
+  purchasedBy?: {
+    donorPseudo?: string;
+    donorMessage?: string;
+    donorPhotoUrl?: string;
+  };
+  transaction?: {
+    amount: number;
+    amountNet: number;
+    feeAmount: number;
+    optionPhotoPaid: boolean;
+    optionPhotoFee: number;
+    donorPseudo?: string;
+    donorMessage?: string;
+    donorPhotoUrl?: string;
+  };
+}
+
+/**
  * API pour la gestion des cadeaux (baby)
  */
 export const giftApi = {
@@ -97,5 +134,23 @@ export const giftApi = {
    */
   deleteGift: async (giftId: string): Promise<void> => {
     await httpClient.delete(`/v1/gifts/${giftId}`);
+  },
+
+  /**
+   * Récupère les stats des cadeaux (activeCount, maxActive, canCreate)
+   */
+  getStats: async (): Promise<GiftStats> => {
+    const response = await httpClient.get<GiftStats>('/v1/gifts/me/stats');
+    return response.data;
+  },
+
+  /**
+   * Récupère les derniers cadeaux financés (pour Home)
+   */
+  getRecentFunded: async (limit = 5): Promise<FundedGift[]> => {
+    const response = await httpClient.get<{ gifts: FundedGift[] }>(
+      `/v1/gifts/me/recent-funded?limit=${limit}`
+    );
+    return response.data.gifts;
   },
 };

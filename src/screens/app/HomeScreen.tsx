@@ -7,6 +7,7 @@ import {
   Pressable,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NavigatorScreenParams, CompositeNavigationProp } from '@react-navigation/native';
@@ -15,12 +16,14 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../services/auth/AuthContext';
-import { stripeConnectApi } from '../../services/api';
+import { stripeConnectApi, giftApi } from '../../services/api';
+import type { FundedGift } from '../../services/api/giftApi';
 import IdentityVerificationCard from '../../components/IdentityVerificationCard';
 import QuickActionsCard from '../../components/QuickActionsCard';
 import AddGiftModal from '../../components/AddGiftModal';
 import type { GiftStackParamList, AppStackParamList } from '../../types/navigation';
 import * as WebBrowser from 'expo-web-browser';
+import { useI18n } from '../../services/i18n';
 
 type AppTabsWithNestedParamList = {
   Home: undefined;
@@ -34,18 +37,38 @@ type HomeScreenNavigationProp = CompositeNavigationProp<
 >;
 
 export default function HomeScreen() {
+  const { t } = useI18n();
   const { user, refreshUser, isLoading } = useAuth();
   const navigation = useNavigation<HomeScreenNavigationProp>();
   const [giftModalVisible, setGiftModalVisible] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(false);
+  const [recentFunded, setRecentFunded] = useState<FundedGift[]>([]);
+  const [loadingFunded, setLoadingFunded] = useState(false);
 
-  // Refresh user data when screen is focused
+  // Refresh user data and recent funded when screen is focused
   useFocusEffect(
     useCallback(() => {
       refreshUser();
+      loadRecentFunded();
     }, [])
   );
+
+  const loadRecentFunded = async () => {
+    try {
+      setLoadingFunded(true);
+      const gifts = await giftApi.getRecentFunded(5);
+      setRecentFunded(gifts);
+    } catch (error) {
+      console.warn('[HomeScreen] Failed to load recent funded:', error);
+    } finally {
+      setLoadingFunded(false);
+    }
+  };
+
+  const handleFundedGiftPress = (giftId: string) => {
+    navigation.navigate('Gifts', { screen: 'GiftDetail', params: { giftId } });
+  };
 
   // Check if identity verification is needed
   const needsIdentityVerification =
@@ -85,8 +108,8 @@ export default function HomeScreen() {
       // Ne navigate pas automatiquement : attends un vrai retour (deep link) OU laisse l'utilisateur revenir.
     } catch (error: unknown) {
       console.error('Error starting Stripe onboarding:', error);
-      const message = error instanceof Error ? error.message : 'Une erreur est survenue';
-      Alert.alert('Erreur', message, [{ text: 'OK' }]);
+      const message = error instanceof Error ? error.message : t('errors.generic');
+      Alert.alert(t('common.error'), message, [{ text: t('common.ok') }]);
     } finally {
       setStripeLoading(false);
     }
@@ -103,9 +126,9 @@ export default function HomeScreen() {
     } else {
       // Other gift types coming soon
       Alert.alert(
-        'Créer un cadeau',
-        `Création de ${type} - fonctionnalité à venir`,
-        [{ text: 'OK' }]
+        t('addGiftModal.comingSoon'),
+        `${type}`,
+        [{ text: t('common.ok') }]
       );
     }
   };
@@ -117,12 +140,12 @@ export default function HomeScreen() {
 
   const handleCreateWishlist = () => {
     // TODO: Navigate to wishlist creation
-    Alert.alert('Liste de souhaits', 'Fonctionnalité à venir', [{ text: 'OK' }]);
+    Alert.alert(t('home.quickActions.wishlist'), t('addGiftModal.comingSoon'), [{ text: t('common.ok') }]);
   };
 
   const handleImportThrone = () => {
     // TODO: Navigate to Throne import
-    Alert.alert('Import Throne', 'Fonctionnalité à venir', [{ text: 'OK' }]);
+    Alert.alert(t('home.quickActions.importThrone'), t('addGiftModal.comingSoon'), [{ text: t('common.ok') }]);
   };
 
   if (isLoading) {
@@ -139,7 +162,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.logo}>HumDaddy</Text>
         <Pressable style={styles.addButton} onPress={handleOpenGiftModal}>
-          <Text style={styles.addButtonText}>+ Ajouter un cadeau</Text>
+          <Text style={styles.addButtonText}>+ {t('home.addGift')}</Text>
         </Pressable>
       </View>
 
@@ -151,7 +174,7 @@ export default function HomeScreen() {
         {/* Welcome section */}
 <View style={styles.welcomeSection}>
   <Text style={styles.welcomeText}>
-    Bienvenue, {user?.publicName || 'Créateur'}
+    {t('home.welcome', { name: user?.publicName || 'Créateur' })}
   </Text>
 
   <View style={styles.linkLine}>
@@ -188,14 +211,14 @@ export default function HomeScreen() {
           !user?.username && styles.publicPageButtonTextDisabled,
         ]}
       >
-       Voir 👀
+       {t('home.viewStats')} 👀
       </Text>
     </Pressable>
   </View>
 
   {!user?.username ? (
     <Text style={styles.noteText}>
-      Configure ton pseudo pour activer ta page publique.
+      {t('home.yourLink')}
     </Text>
   ) : null}
 </View>
@@ -213,15 +236,15 @@ export default function HomeScreen() {
         {/* Total received card */}
         <View style={styles.totalCard}>
           <View style={styles.totalHeader}>
-            <Text style={styles.totalLabel}>Total reçu</Text>
-            <Text style={styles.totalPeriod}>Tout le temps</Text>
+            <Text style={styles.totalLabel}>{t('home.totalReceived')}</Text>
+            <Text style={styles.totalPeriod}></Text>
           </View>
           <Text style={styles.totalAmount}>
             {user?.totalReceived ? `${user.totalReceived} €` : '0 €'}
           </Text>
           <Pressable style={styles.statsLink}>
             <Text style={styles.statsLinkText}>
-              Afficher plus de statistiques
+              {t('home.viewStats')}
             </Text>
           </Pressable>
         </View>
@@ -234,36 +257,77 @@ export default function HomeScreen() {
         // onImportThrone={handleImportThrone}
         />
 
+        {/* Recent funded gifts */}
+        <View style={styles.recentFundedCard}>
+          <Text style={styles.sectionTitle}>{t('home.recentFunded.title')}</Text>
+          {loadingFunded ? (
+            <ActivityIndicator size="small" color={colors.accent} style={styles.fundedLoader} />
+          ) : recentFunded.length === 0 ? (
+            <Text style={styles.emptyText}>{t('home.recentFunded.empty')}</Text>
+          ) : (
+            recentFunded.map((gift) => {
+              const donorName = gift.transaction?.donorPseudo || t('home.recentFunded.anonymous');
+              const imageUrl = gift.mediaUrls?.[gift.mainMediaIndex || 0] || gift.mediaUrls?.[0];
+              return (
+                <Pressable
+                  key={gift._id}
+                  style={styles.fundedItem}
+                  onPress={() => handleFundedGiftPress(gift._id)}
+                >
+                  {imageUrl && (
+                    <Image source={{ uri: imageUrl }} style={styles.fundedImage} />
+                  )}
+                  <View style={styles.fundedInfo}>
+                    <Text style={styles.fundedTitle} numberOfLines={1}>{gift.title}</Text>
+                    <Text style={styles.fundedDonor}>
+                      {t('home.recentFunded.fundedBy', { name: donorName })}
+                    </Text>
+                    {gift.transaction?.donorMessage && (
+                      <Text style={styles.fundedMessage} numberOfLines={2}>
+                        "{gift.transaction.donorMessage}"
+                      </Text>
+                    )}
+                  </View>
+                  {gift.transaction?.donorPhotoUrl && (
+                    <Image
+                      source={{ uri: gift.transaction.donorPhotoUrl }}
+                      style={styles.donorPhoto}
+                    />
+                  )}
+                </Pressable>
+              );
+            })
+          )}
+        </View>
+
         {/* Recent gifts */}
         <View style={styles.recentGiftsCard}>
-          <Text style={styles.recentGiftsTitle}>Vos cadeaux récents</Text>
+          <Text style={styles.recentGiftsTitle}>{t('home.recentGifts.title')}</Text>
           <Text style={styles.recentGiftsEmpty}>
-            Vous n'avez encore reçu aucun cadeau. Pour commencer, ajoutez un
-            cadeau à votre liste de souhaits.
+            {t('home.recentGifts.empty')}
           </Text>
           <Pressable
             style={styles.createGiftButton}
             onPress={handleOpenGiftModal}
           >
-            <Text style={styles.createGiftButtonText}>Créer un cadeau</Text>
+            <Text style={styles.createGiftButtonText}>{t('home.recentGifts.createFirst')}</Text>
           </Pressable>
         </View>
 
         {/* Latest updates section */}
         <View style={styles.updatesCard}>
-          <Text style={styles.updatesTitle}>Dernières mises à jour</Text>
+          <Text style={styles.updatesTitle}>{t('home.updates.title')}</Text>
           <View style={styles.updateBadge}>
-            <Text style={styles.updateBadgeText}>Nouvelles</Text>
+            <Text style={styles.updateBadgeText}>News</Text>
           </View>
           <Text style={styles.updateHeadline}>
-            HumDaddy est le nouveau nom de...
+            HumDaddy
           </Text>
           <Text style={styles.updateDescription}>
-            Rien n'a changé concernant l'accès à vos fonds et l'utilisation de
-            la plateforme.
+
           </Text>
           <Pressable style={styles.helpButton}>
-            <Text style={styles.helpButtonText}>Aide</Text>
+            <Text style={styles.helpButtonText}>Help</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -494,4 +558,65 @@ publicPageButtonDisabled: {
 publicPageButtonTextDisabled: {
   color: colors.muted,
 },
+  // Recent funded styles
+  recentFundedCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+  },
+  fundedLoader: {
+    paddingVertical: 20,
+  },
+  emptyText: {
+    fontSize: 14,
+    color: colors.muted,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+  fundedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  fundedImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  fundedInfo: {
+    flex: 1,
+  },
+  fundedTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 2,
+  },
+  fundedDonor: {
+    fontSize: 12,
+    color: colors.accent,
+  },
+  fundedMessage: {
+    fontSize: 11,
+    color: colors.muted,
+    fontStyle: 'italic',
+    marginTop: 4,
+  },
+  donorPhoto: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginLeft: 8,
+  },
 });

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors } from '../theme/colors';
+import { useI18n } from '../services/i18n';
 
 type StripeStatus = 'pending' | 'actif' | 'restricted' | 'disabled' | null;
 
@@ -10,37 +11,37 @@ interface IdentityVerificationCardProps {
   status?: StripeStatus;
 }
 
-const getStatusInfo = (status: StripeStatus) => {
+const getStatusInfo = (status: StripeStatus, t: (key: string) => string) => {
   switch (status) {
     case 'pending':
       return {
-        title: 'Vérification en cours',
-        description: 'Stripe examine vos informations. Cela peut prendre quelques minutes.',
-        buttonText: 'Continuer la vérification',
+        title: t('home.verifyIdentity.pending'),
+        description: t('home.verifyIdentity.loading'),
+        buttonText: t('home.verifyIdentity.button'),
         emoji: '⏳',
         bgColor: '#1E3A5F',
       };
     case 'restricted':
       return {
-        title: 'Action requise',
-        description: 'Des informations supplémentaires sont nécessaires pour activer votre compte.',
-        buttonText: 'Compléter la vérification',
+        title: t('home.verifyIdentity.restricted'),
+        description: t('home.verifyIdentity.subtitle'),
+        buttonText: t('home.verifyIdentity.button'),
         emoji: '⚠️',
         bgColor: '#7C2D12',
       };
     case 'disabled':
       return {
-        title: 'Compte désactivé',
-        description: 'Votre compte Stripe a été désactivé. Contactez le support.',
-        buttonText: 'Reprendre la vérification',
+        title: t('home.verifyIdentity.disabled'),
+        description: t('home.verifyIdentity.subtitle'),
+        buttonText: t('home.verifyIdentity.button'),
         emoji: '🚫',
         bgColor: '#4B1C1C',
       };
     default:
       return {
-        title: 'Vérifiez votre identité',
-        description: 'Faites vérifier votre compte pour recevoir des paiements via HumDaddy.',
-        buttonText: 'Vérifier l\'identité',
+        title: t('home.verifyIdentity.title'),
+        description: t('home.verifyIdentity.subtitle'),
+        buttonText: t('home.verifyIdentity.button'),
         emoji: '🛡️',
         bgColor: '#1E3A5F',
       };
@@ -52,7 +53,8 @@ export default function IdentityVerificationCard({
   isLoading = false,
   status = null,
 }: IdentityVerificationCardProps) {
-  const info = getStatusInfo(status);
+  const { t } = useI18n();
+  const info = getStatusInfo(status, t);
 
   return (
     <View style={[styles.container, { backgroundColor: info.bgColor }]}>

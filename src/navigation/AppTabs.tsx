@@ -4,13 +4,14 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { AppTabsParamList } from '../types/navigation';
 import HomeScreen from '../screens/app/HomeScreen';
-import WalletScreen from '../screens/app/WalletScreen';
 import GiftStack from './GiftStack';
+import WalletStack from './WalletStack';
 import ProfileScreen from '../screens/app/ProfileScreen';
 import AddGiftModal from '../components/AddGiftModal';
 import { colors } from '../theme/colors';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import type { AppStackParamList } from '../types/navigation';
+import { useI18n } from '../services/i18n';
 
 const Tab = createBottomTabNavigator<AppTabsParamList>();
 
@@ -25,6 +26,7 @@ function AddButton({ onPress }: { onPress: () => void }) {
 }
 
 export default function AppTabs() {
+  const { t } = useI18n();
   const [giftModalVisible, setGiftModalVisible] = useState(false);
   const navigation = useNavigation<NavigationProp<AppStackParamList>>();
 
@@ -63,7 +65,7 @@ export default function AppTabs() {
           name="Home"
           component={HomeScreen}
           options={{
-            tabBarLabel: 'Accueil',
+            tabBarLabel: t('tabs.home'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="home-outline" size={size} color={color} />
             ),
@@ -73,7 +75,7 @@ export default function AppTabs() {
           name="Gifts"
           component={GiftStack}
           options={{
-            tabBarLabel: 'Cadeaux',
+            tabBarLabel: t('tabs.gifts'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="gift-outline" size={size} color={color} />
             ),
@@ -95,9 +97,9 @@ export default function AppTabs() {
         />
                 <Tab.Screen
           name="Wallet"
-          component={WalletScreen}
+          component={WalletStack}
           options={{
-            tabBarLabel: 'Wallet',
+            tabBarLabel: t('tabs.wallet'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="wallet-outline" size={size} color={color} />
             ),
@@ -107,7 +109,7 @@ export default function AppTabs() {
           name="Profile"
           component={ProfileScreen}
           options={{
-            tabBarLabel: 'Profil',
+            tabBarLabel: t('tabs.profile'),
             tabBarIcon: ({ color, size }) => (
               <Ionicons name="person-outline" size={size} color={color} />
             ),
