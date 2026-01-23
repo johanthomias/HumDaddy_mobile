@@ -32,6 +32,27 @@ export const fr = {
     profile: 'Profil',
   },
 
+  // Onboarding
+  onboarding: {
+    skip: 'Passer',
+    getStarted: 'COMMENCER',
+    slide1: {
+      label: 'TENDANCE',
+      title: 'RECEVEZ DES\nCADEAUX DE\nVOS FANS',
+      subtitle: 'La plateforme moderne pour les créateurs —\nrapide, sécurisée et pensée pour vous.',
+    },
+    slide2: {
+      label: 'SIMPLE',
+      title: 'CRÉEZ VOTRE\nWISHLIST EN\nQUELQUES CLICS',
+      subtitle: 'Ajoutez les cadeaux que vous souhaitez recevoir\net partagez votre lien unique.',
+    },
+    slide3: {
+      label: 'PREMIUM',
+      title: 'RECEVEZ DES\nPAIEMENTS\nINSTANTANÉS',
+      subtitle: 'Paiements sécurisés via Stripe avec\nretraits rapides vers votre compte.',
+    },
+  },
+
   // Auth - Link Screen
   auth: {
     link: {
@@ -303,6 +324,16 @@ export const fr = {
       payoutsNotEnabled: 'Les virements ne sont pas encore activés sur votre compte',
       onboardingIncomplete: 'Votre compte Stripe n\'est pas complètement vérifié',
       minBalance: 'Solde minimum requis : {{amount}}€',
+    },
+    donorPhoto: {
+      title: 'Photo jointe',
+      warningTitle: 'Contenu privé',
+      warningMessage: 'Ce média a été envoyé par le donateur. Il peut contenir du contenu intime. Voulez-vous l\'afficher ?',
+      viewButton: 'Afficher',
+      badge: 'Photo jointe',
+      seeMedia: 'Voir le média',
+      privateContent: 'Contenu privé',
+      unavailable: 'Média indisponible',
     },
   },
 

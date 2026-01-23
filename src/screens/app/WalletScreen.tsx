@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { colors } from '../../theme/colors';
-import { walletApi } from '../../services/api';
+import { walletApi, stripeConnectApi } from '../../services/api';
 import type { WalletSummary, WalletActivityItem } from '../../services/api/walletApi';
 import { useAuth } from '../../services/auth/AuthContext';
 import { useI18n } from '../../services/i18n';
@@ -67,11 +67,13 @@ export default function WalletScreen({ navigation }: Props) {
         setLoading(true);
       }
 
+      // Rafraîchir le statut Stripe Connect en parallèle (fire-and-forget pour le status)
       const [summaryData, activityData] = await Promise.all([
         walletApi.getSummary(),
         walletApi.listActivity({ limit: 20 }),
+        stripeConnectApi.getStatus().catch(() => null),
       ]);
-
+console.log("1 :", summaryData, "2 :", activityData)
       setSummary(summaryData);
       setActivity(activityData.items);
       setNextCursor(activityData.nextCursor);

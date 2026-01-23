@@ -15,6 +15,7 @@ import { WalletStackParamList } from '../../../types/navigation';
 import { colors } from '../../../theme/colors';
 import { walletApi, Transaction } from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
+import DonorPhotoModal from '../../../components/DonorPhotoModal';
 
 type Props = NativeStackScreenProps<WalletStackParamList, 'TransactionDetail'>;
 
@@ -43,6 +44,7 @@ export default function TransactionDetailScreen({ navigation, route }: Props) {
   const { transactionId } = route.params;
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
 
   useEffect(() => {
     loadTransaction();
@@ -59,6 +61,16 @@ export default function TransactionDetailScreen({ navigation, route }: Props) {
       navigation.goBack();
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRequestPhoto = async (): Promise<string | null> => {
+    try {
+      const response = await walletApi.getTransactionMedia(transactionId);
+      return response.donorPhotoUrl;
+    } catch (error) {
+      console.error('Error loading donor photo:', error);
+      return null;
     }
   };
 
@@ -140,9 +152,6 @@ export default function TransactionDetailScreen({ navigation, route }: Props) {
           <Text style={styles.sectionTitle}>{t('wallet.transactions.donor')}</Text>
 
           <View style={styles.donorInfo}>
-            {transaction.donorPhotoUrl && (
-              <Image source={{ uri: transaction.donorPhotoUrl }} style={styles.donorPhoto} />
-            )}
             <View style={styles.donorDetails}>
               <Text style={styles.donorPseudo}>
                 {transaction.donorPseudo || t('wallet.transactions.anonymous')}
@@ -159,6 +168,23 @@ export default function TransactionDetailScreen({ navigation, route }: Props) {
               <Text style={styles.messageText}>{transaction.donorMessage}</Text>
             </View>
           )}
+
+          {/* Photo jointe - Opt-in sécurisé */}
+          {transaction.hasDonorPhoto && (
+            <Pressable
+              style={styles.viewPhotoButton}
+              onPress={() => setPhotoModalVisible(true)}
+            >
+              <View style={styles.photoBadge}>
+                <Ionicons name="image" size={16} color={colors.accent} />
+                <Text style={styles.photoBadgeText}>{t('wallet.donorPhoto.badge')}</Text>
+              </View>
+              <View style={styles.viewPhotoAction}>
+                <Text style={styles.viewPhotoText}>{t('wallet.donorPhoto.seeMedia')}</Text>
+                <Ionicons name="chevron-forward" size={18} color={colors.accent} />
+              </View>
+            </Pressable>
+          )}
         </View>
 
         {/* Date */}
@@ -167,6 +193,13 @@ export default function TransactionDetailScreen({ navigation, route }: Props) {
           <Text style={styles.dateValue}>{formatDate(transaction.createdAt)}</Text>
         </View>
       </ScrollView>
+
+      {/* Modal photo donor */}
+      <DonorPhotoModal
+        visible={photoModalVisible}
+        onClose={() => setPhotoModalVisible(false)}
+        onRequestPhoto={handleRequestPhoto}
+      />
     </View>
   );
 }
@@ -298,12 +331,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  donorPhoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 16,
-  },
   donorDetails: {
     flex: 1,
   },
@@ -332,6 +359,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
+  },
+  // Photo jointe - styles opt-in
+  viewPhotoButton: {
+    marginTop: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 14,
+    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(231, 76, 60, 0.3)',
+  },
+  photoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  photoBadgeText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.accent,
+  },
+  viewPhotoAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewPhotoText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.accent,
   },
   dateCard: {
     backgroundColor: colors.primaryLight,

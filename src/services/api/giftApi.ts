@@ -24,7 +24,8 @@ export interface Gift {
     donorPseudo?: string;
     donorEmail?: string;
     donorMessage?: string;
-    donorPhotoUrl?: string;
+    // Option photo : l'URL n'est plus exposée, seulement hasDonorPhoto
+    hasDonorPhoto?: boolean;
   };
   createdAt: string;
   updatedAt: string;
@@ -79,7 +80,8 @@ export interface FundedGift {
   purchasedBy?: {
     donorPseudo?: string;
     donorMessage?: string;
-    donorPhotoUrl?: string;
+    // Option photo : l'URL n'est plus exposée, seulement hasDonorPhoto
+    hasDonorPhoto?: boolean;
   };
   transaction?: {
     amount: number;
@@ -89,8 +91,16 @@ export interface FundedGift {
     optionPhotoFee: number;
     donorPseudo?: string;
     donorMessage?: string;
-    donorPhotoUrl?: string;
+    // Option photo : l'URL n'est plus exposée, seulement hasDonorPhoto
+    hasDonorPhoto?: boolean;
   };
+}
+
+/**
+ * Réponse pour l'endpoint media (photo donor)
+ */
+export interface GiftMediaResponse {
+  donorPhotoUrl: string;
 }
 
 /**
@@ -152,5 +162,16 @@ export const giftApi = {
       `/v1/gifts/me/recent-funded?limit=${limit}`
     );
     return response.data.gifts;
+  },
+
+  /**
+   * Récupère le média (photo donor) d'un cadeau
+   * Endpoint sécurisé pour opt-in "Voir le média"
+   */
+  getGiftMedia: async (giftId: string): Promise<GiftMediaResponse> => {
+    const response = await httpClient.get<GiftMediaResponse>(
+      `/v1/gifts/${giftId}/media`
+    );
+    return response.data;
   },
 };

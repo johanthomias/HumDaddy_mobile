@@ -12,11 +12,13 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { GiftStackParamList } from '../../../types/navigation';
 import { colors } from '../../../theme/colors';
 import { giftApi, getErrorMessage, Gift } from '../../../services/api';
 import { useI18n } from '../../../services/i18n';
 import { useAuth } from '../../../services/auth/AuthContext';
+import DonorPhotoModal from '../../../components/DonorPhotoModal';
 
 type Props = NativeStackScreenProps<GiftStackParamList, 'GiftDetail'>;
 
@@ -28,6 +30,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [photoModalVisible, setPhotoModalVisible] = useState(false);
 
   // Recharger les données quand l'écran reprend le focus (après édition)
   useFocusEffect(
@@ -104,6 +107,16 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
     } catch (err) {
       console.warn('[GiftDetail] Share error:', err);
       Alert.alert(t('common.error'), t('gifts.detail.shareError'));
+    }
+  };
+
+  const handleRequestPhoto = async (): Promise<string | null> => {
+    try {
+      const response = await giftApi.getGiftMedia(giftId);
+      return response.donorPhotoUrl;
+    } catch (err) {
+      console.error('Error loading donor photo:', err);
+      return null;
     }
   };
 
@@ -186,11 +199,14 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
           <View style={styles.donorSection}>
             <Text style={styles.sectionLabel}>{t('gifts.detail.donor.title')}</Text>
             <View style={styles.donorCard}>
-              {gift.purchasedBy.donorPhotoUrl && (
-                <Image
-                  source={{ uri: gift.purchasedBy.donorPhotoUrl }}
-                  style={styles.donorPhoto}
-                />
+              {/* Badge photo jointe - opt-in sécurisé */}
+              {gift.purchasedBy.hasDonorPhoto && (
+                <Pressable
+                  style={styles.donorPhotoBadge}
+                  onPress={() => setPhotoModalVisible(true)}
+                >
+                  <Ionicons name="image" size={20} color={colors.accent} />
+                </Pressable>
               )}
               <View style={styles.donorInfo}>
                 <Text style={styles.donorName}>
@@ -200,6 +216,16 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
                   <Text style={styles.donorMessage}>
                     "{gift.purchasedBy.donorMessage}"
                   </Text>
+                )}
+                {/* Lien "Voir le média" si photo jointe */}
+                {gift.purchasedBy.hasDonorPhoto && (
+                  <Pressable
+                    style={styles.viewPhotoLink}
+                    onPress={() => setPhotoModalVisible(true)}
+                  >
+                    <Text style={styles.viewPhotoLinkText}>{t('wallet.donorPhoto.seeMedia')}</Text>
+                    <Ionicons name="chevron-forward" size={14} color={colors.accent} />
+                  </Pressable>
                 )}
               </View>
             </View>
@@ -253,6 +279,13 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
           </View>
         )}
       </ScrollView>
+
+      {/* Modal photo donor */}
+      <DonorPhotoModal
+        visible={photoModalVisible}
+        onClose={() => setPhotoModalVisible(false)}
+        onRequestPhoto={handleRequestPhoto}
+      />
     </View>
   );
 }
@@ -378,11 +411,25 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 16,
   },
-  donorPhoto: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+  donorPhotoBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: 'rgba(231, 76, 60, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginRight: 12,
+  },
+  viewPhotoLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  viewPhotoLinkText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.accent,
   },
   donorInfo: {
     flex: 1,

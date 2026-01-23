@@ -31,6 +31,27 @@ export const en = {
     profile: 'Profile',
   },
 
+  // Onboarding
+  onboarding: {
+    skip: 'Skip',
+    getStarted: 'GET STARTED',
+    slide1: {
+      label: 'TRENDING',
+      title: 'RECEIVE\nGIFTS FROM\nYOUR FANS',
+      subtitle: 'The modern platform for creators —\nfast, secure, and built for you.',
+    },
+    slide2: {
+      label: 'SIMPLE',
+      title: 'CREATE YOUR\nWISHLIST IN\nJUST A FEW TAPS',
+      subtitle: 'Add the gifts you want to receive\nand share your unique link.',
+    },
+    slide3: {
+      label: 'PREMIUM',
+      title: 'GET INSTANT\nPAYMENTS\nDIRECTLY',
+      subtitle: 'Secure payments via Stripe with\nfast withdrawals to your account.',
+    },
+  },
+
   // Auth - Link Screen
   auth: {
     link: {
@@ -50,7 +71,7 @@ export const en = {
       title: 'Verification',
       subtitle: 'Enter the code received by SMS',
       phoneLabel: 'Phone number',
-      phonePlaceholder: '+1 555 123 4567',
+      phonePlaceholder: '0612345678',
       sendCode: 'Send code',
       codeLabel: 'Verification code',
       codePlaceholder: '000000',
@@ -300,6 +321,16 @@ export const en = {
       payoutsNotEnabled: 'Payouts are not yet enabled on your account',
       onboardingIncomplete: 'Your Stripe account is not fully verified',
       minBalance: 'Minimum balance required: €{{amount}}',
+    },
+    donorPhoto: {
+      title: 'Attached photo',
+      warningTitle: 'Private content',
+      warningMessage: 'This media was sent by the donor. It may contain intimate content. Do you want to view it?',
+      viewButton: 'View',
+      badge: 'Photo attached',
+      seeMedia: 'See media',
+      privateContent: 'Private content',
+      unavailable: 'Media unavailable',
     },
   },
 

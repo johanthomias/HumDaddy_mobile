@@ -14,10 +14,11 @@ import type { NavigatorScreenParams, CompositeNavigationProp } from '@react-navi
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../services/auth/AuthContext';
 import { stripeConnectApi, giftApi } from '../../services/api';
-import type { FundedGift } from '../../services/api/giftApi';
+import type { FundedGift, Gift } from '../../services/api/giftApi';
 import IdentityVerificationCard from '../../components/IdentityVerificationCard';
 import QuickActionsCard from '../../components/QuickActionsCard';
 import AddGiftModal from '../../components/AddGiftModal';
@@ -28,6 +29,7 @@ import { useI18n } from '../../services/i18n';
 type AppTabsWithNestedParamList = {
   Home: undefined;
   Gifts: NavigatorScreenParams<GiftStackParamList>;
+  Wallet: undefined;
   Profile: undefined;
 };
 
@@ -45,12 +47,15 @@ export default function HomeScreen() {
   const [stripeLoading, setStripeLoading] = useState(false);
   const [recentFunded, setRecentFunded] = useState<FundedGift[]>([]);
   const [loadingFunded, setLoadingFunded] = useState(false);
+  const [myGifts, setMyGifts] = useState<Gift[]>([]);
+  const [loadingMyGifts, setLoadingMyGifts] = useState(false);
 
   // Refresh user data and recent funded when screen is focused
   useFocusEffect(
     useCallback(() => {
       refreshUser();
       loadRecentFunded();
+      loadMyGifts();
     }, [])
   );
 
@@ -63,6 +68,18 @@ export default function HomeScreen() {
       console.warn('[HomeScreen] Failed to load recent funded:', error);
     } finally {
       setLoadingFunded(false);
+    }
+  };
+
+  const loadMyGifts = async () => {
+    try {
+      setLoadingMyGifts(true);
+      const gifts = await giftApi.listMyGifts();
+      setMyGifts(gifts);
+    } catch (error) {
+      console.warn('[HomeScreen] Failed to load my gifts:', error);
+    } finally {
+      setLoadingMyGifts(false);
     }
   };
 
@@ -91,6 +108,10 @@ export default function HomeScreen() {
   const handleOpenPublicPage = async () => {
     if (!user?.username) return;
     await WebBrowser.openBrowserAsync(publicLink);
+  };
+
+  const handleViewStats = () => {
+    navigation.navigate('Wallet');
   };
 
 
@@ -172,56 +193,56 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Welcome section */}
-<View style={styles.welcomeSection}>
-  <Text style={styles.welcomeText}>
-    {t('home.welcome', { name: user?.publicName || 'Créateur' })}
-  </Text>
+        <View style={styles.welcomeSection}>
+          <Text style={styles.welcomeText}>
+            {t('home.welcome', { name: user?.publicName || 'Créateur' })}
+          </Text>
 
-  <View style={styles.linkLine}>
-    <Pressable
-      style={styles.linkRow}
-      onPress={handleCopyLink}
-      disabled={!user?.username}
-    >
-      <Text
-        style={[
-          styles.linkText,
-          !user?.username && styles.linkTextDisabled,
-        ]}
-        numberOfLines={1}
-      >
-        {publicLink}
-      </Text>
-      {user?.username ? (
-        <Text style={styles.copyIcon}>{copiedLink ? '✓' : '📋'}</Text>
-      ) : null}
-    </Pressable>
+          <View style={styles.linkLine}>
+            <Pressable
+              style={styles.linkRow}
+              onPress={handleCopyLink}
+              disabled={!user?.username}
+            >
+              <Text
+                style={[
+                  styles.linkText,
+                  !user?.username && styles.linkTextDisabled,
+                ]}
+                numberOfLines={1}
+              >
+                {publicLink}
+              </Text>
+              {user?.username ? (
+                <Text style={styles.copyIcon}>{copiedLink ? '✓' : '📋'}</Text>
+              ) : null}
+            </Pressable>
 
-    <Pressable
-      style={[
-        styles.publicPageButton,
-        !user?.username && styles.publicPageButtonDisabled,
-      ]}
-      onPress={handleOpenPublicPage}
-      disabled={!user?.username}
-    >
-      <Text
-        style={[
-          styles.publicPageButtonText,
-          !user?.username && styles.publicPageButtonTextDisabled,
-        ]}
-      >
-       {t('home.viewStats')} 👀
-      </Text>
-    </Pressable>
-  </View>
+            <Pressable
+              style={[
+                styles.publicPageButton,
+                !user?.username && styles.publicPageButtonDisabled,
+              ]}
+              onPress={handleOpenPublicPage}
+              disabled={!user?.username}
+            >
+              <Text
+                style={[
+                  styles.publicPageButtonText,
+                  !user?.username && styles.publicPageButtonTextDisabled,
+                ]}
+              >
+                {t('home.viewStats')} 👀
+              </Text>
+            </Pressable>
+          </View>
 
-  {!user?.username ? (
-    <Text style={styles.noteText}>
-      {t('home.yourLink')}
-    </Text>
-  ) : null}
-</View>
+          {!user?.username ? (
+            <Text style={styles.noteText}>
+              {t('home.yourLink')}
+            </Text>
+          ) : null}
+        </View>
 
 
         {/* Identity verification card (conditional) */}
@@ -242,7 +263,10 @@ export default function HomeScreen() {
           <Text style={styles.totalAmount}>
             {user?.totalReceived ? `${user.totalReceived} €` : '0 €'}
           </Text>
-          <Pressable style={styles.statsLink}>
+          <Pressable
+            style={styles.statsLink}
+            onPress={handleViewStats}
+          >
             <Text style={styles.statsLinkText}>
               {t('home.viewStats')}
             </Text>
@@ -288,11 +312,11 @@ export default function HomeScreen() {
                       </Text>
                     )}
                   </View>
-                  {gift.transaction?.donorPhotoUrl && (
-                    <Image
-                      source={{ uri: gift.transaction.donorPhotoUrl }}
-                      style={styles.donorPhoto}
-                    />
+                  {/* Photo jointe - badge seulement, pas d'affichage direct */}
+                  {gift.transaction?.hasDonorPhoto && (
+                    <View style={styles.donorPhotoBadge}>
+                      <Ionicons name="image" size={14} color={colors.accent} />
+                    </View>
                   )}
                 </Pressable>
               );
@@ -303,15 +327,52 @@ export default function HomeScreen() {
         {/* Recent gifts */}
         <View style={styles.recentGiftsCard}>
           <Text style={styles.recentGiftsTitle}>{t('home.recentGifts.title')}</Text>
-          <Text style={styles.recentGiftsEmpty}>
-            {t('home.recentGifts.empty')}
-          </Text>
-          <Pressable
-            style={styles.createGiftButton}
-            onPress={handleOpenGiftModal}
-          >
-            <Text style={styles.createGiftButtonText}>{t('home.recentGifts.createFirst')}</Text>
-          </Pressable>
+          {loadingMyGifts ? (
+            <ActivityIndicator size="small" color={colors.accent} style={styles.fundedLoader} />
+          ) : myGifts.length === 0 ? (
+            <>
+              <Text style={styles.recentGiftsEmpty}>
+                {t('home.recentGifts.empty')}
+              </Text>
+              <Pressable
+                style={styles.createGiftButton}
+                onPress={handleOpenGiftModal}
+              >
+                <Text style={styles.createGiftButtonText}>{t('home.recentGifts.createFirst')}</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <Pressable
+                style={styles.lastGiftItem}
+                onPress={() => navigation.navigate('Gifts', { screen: 'GiftDetail', params: { giftId: myGifts[0]._id } })}
+              >
+                {myGifts[0].mediaUrls?.[myGifts[0].mainMediaIndex || 0] && (
+                  <Image
+                    source={{ uri: myGifts[0].mediaUrls[myGifts[0].mainMediaIndex || 0] }}
+                    style={styles.lastGiftImage}
+                  />
+                )}
+                <View style={styles.lastGiftInfo}>
+                  <Text style={styles.lastGiftTitle} numberOfLines={1}>{myGifts[0].title}</Text>
+                  <Text style={styles.lastGiftPrice}>
+                    {myGifts[0].price.toFixed(2)} {myGifts[0].currency === 'eur' ? '€' : '$'}
+                  </Text>
+                  {myGifts[0].isPurchased && (
+                    <View style={styles.purchasedBadge}>
+                      <Text style={styles.purchasedBadgeText}>Financé</Text>
+                    </View>
+                  )}
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.muted} />
+              </Pressable>
+              {myGifts.length > 1 && (
+                <Text style={styles.moreGiftsText}>
+                  +{myGifts.length - 1} autre{myGifts.length > 2 ? 's' : ''} cadeau{myGifts.length > 2 ? 'x' : ''}
+                </Text>
+              )}
+            </>
+          )}
         </View>
 
         {/* Latest updates section */}
@@ -541,23 +602,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.muted,
   },
-linkLine: {
-  flexDirection: 'row',
-  alignItems: 'center',
-  gap: 10,
-},
+  linkLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
 
-linkTextDisabled: {
-  opacity: 0.6,
-},
+  linkTextDisabled: {
+    opacity: 0.6,
+  },
 
-publicPageButtonDisabled: {
-  opacity: 0.4,
-},
+  publicPageButtonDisabled: {
+    opacity: 0.4,
+  },
 
-publicPageButtonTextDisabled: {
-  color: colors.muted,
-},
+  publicPageButtonTextDisabled: {
+    color: colors.muted,
+  },
   // Recent funded styles
   recentFundedCard: {
     backgroundColor: colors.primaryLight,
@@ -613,10 +674,60 @@ publicPageButtonTextDisabled: {
     fontStyle: 'italic',
     marginTop: 4,
   },
-  donorPhoto: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  donorPhotoBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(231, 76, 60, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
     marginLeft: 8,
+  },
+  // Last gift styles
+  lastGiftItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  lastGiftImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 10,
+    marginRight: 12,
+  },
+  lastGiftInfo: {
+    flex: 1,
+  },
+  lastGiftTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  lastGiftPrice: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#7C3AED',
+  },
+  purchasedBadge: {
+    backgroundColor: '#10B981',
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+  },
+  purchasedBadgeText: {
+    color: colors.text,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  moreGiftsText: {
+    fontSize: 13,
+    color: colors.muted,
+    textAlign: 'center',
+    marginTop: 12,
   },
 });

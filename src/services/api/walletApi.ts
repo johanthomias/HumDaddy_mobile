@@ -76,7 +76,8 @@ export interface Transaction {
   donorPseudo?: string;
   donorEmail?: string;
   donorMessage?: string;
-  donorPhotoUrl?: string;
+  // Option photo : l'URL n'est plus exposée, seulement hasDonorPhoto
+  hasDonorPhoto?: boolean;
   stripeCheckoutSessionId?: string;
   gift?: {
     id: string;
@@ -88,6 +89,10 @@ export interface Transaction {
     currency: string;
   } | null;
   createdAt: string;
+}
+
+export interface TransactionMediaResponse {
+  donorPhotoUrl: string;
 }
 
 export interface TransactionsResponse {
@@ -159,6 +164,17 @@ export const walletApi = {
   getTransaction: async (transactionId: string): Promise<Transaction> => {
     const response = await httpClient.get<Transaction>(
       `/v1/wallet/me/transactions/${transactionId}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Récupère le média (photo donor) d'une transaction
+   * Endpoint sécurisé pour opt-in "Voir le média"
+   */
+  getTransactionMedia: async (transactionId: string): Promise<TransactionMediaResponse> => {
+    const response = await httpClient.get<TransactionMediaResponse>(
+      `/v1/wallet/me/transactions/${transactionId}/media`
     );
     return response.data;
   },
