@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
 } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NavigatorScreenParams, CompositeNavigationProp } from '@react-navigation/native';
@@ -17,14 +18,30 @@ import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../../theme/colors';
 import { useAuth } from '../../services/auth/AuthContext';
-import { stripeConnectApi, giftApi } from '../../services/api';
+import { stripeConnectApi, giftApi, updatesApi, badgeLabels } from '../../services/api';
 import type { FundedGift, Gift } from '../../services/api/giftApi';
+import type { Update } from '../../services/api/updatesApi';
 import IdentityVerificationCard from '../../components/IdentityVerificationCard';
 import QuickActionsCard from '../../components/QuickActionsCard';
 import AddGiftModal from '../../components/AddGiftModal';
 import type { GiftStackParamList, AppStackParamList } from '../../types/navigation';
 import * as WebBrowser from 'expo-web-browser';
 import { useI18n } from '../../services/i18n';
+
+const getBadgeColor = (badge: Update['badge']): string => {
+  switch (badge) {
+    case 'news':
+      return '#3B82F6'; // blue
+    case 'update':
+      return '#10B981'; // green
+    case 'maintenance':
+      return '#F59E0B'; // amber
+    case 'security':
+      return '#EF4444'; // red
+    default:
+      return '#3B82F6';
+  }
+};
 
 type AppTabsWithNestedParamList = {
   Home: undefined;
@@ -49,6 +66,8 @@ export default function HomeScreen() {
   const [loadingFunded, setLoadingFunded] = useState(false);
   const [myGifts, setMyGifts] = useState<Gift[]>([]);
   const [loadingMyGifts, setLoadingMyGifts] = useState(false);
+  const [latestUpdate, setLatestUpdate] = useState<Update | null>(null);
+  const [loadingUpdates, setLoadingUpdates] = useState(false);
 
   // Refresh user data and recent funded when screen is focused
   useFocusEffect(
@@ -56,6 +75,7 @@ export default function HomeScreen() {
       refreshUser();
       loadRecentFunded();
       loadMyGifts();
+      loadLatestUpdate();
     }, [])
   );
 
@@ -80,6 +100,19 @@ export default function HomeScreen() {
       console.warn('[HomeScreen] Failed to load my gifts:', error);
     } finally {
       setLoadingMyGifts(false);
+    }
+  };
+
+  const loadLatestUpdate = async () => {
+    try {
+      setLoadingUpdates(true);
+      const updates = await updatesApi.listPublicUpdates(1);
+      setLatestUpdate(updates.length > 0 ? updates[0] : null);
+    } catch (error) {
+      console.warn('[HomeScreen] Failed to load latest update:', error);
+      setLatestUpdate(null);
+    } finally {
+      setLoadingUpdates(false);
     }
   };
 
@@ -376,21 +409,33 @@ export default function HomeScreen() {
         </View>
 
         {/* Latest updates section */}
-        <View style={styles.updatesCard}>
-          <Text style={styles.updatesTitle}>{t('home.updates.title')}</Text>
-          <View style={styles.updateBadge}>
-            <Text style={styles.updateBadgeText}>News</Text>
+        {loadingUpdates ? (
+          <View style={styles.updatesCard}>
+            <Text style={styles.updatesTitle}>{t('home.updates.title')}</Text>
+            <ActivityIndicator size="small" color={colors.accent} style={styles.fundedLoader} />
           </View>
-          <Text style={styles.updateHeadline}>
-            HumDaddy
-          </Text>
-          <Text style={styles.updateDescription}>
-
-          </Text>
-          <Pressable style={styles.helpButton}>
-            <Text style={styles.helpButtonText}>Help</Text>
-          </Pressable>
-        </View>
+        ) : latestUpdate ? (
+          <View style={styles.updatesCard}>
+            <Text style={styles.updatesTitle}>{t('home.updates.title')}</Text>
+            <View style={[styles.updateBadge, { backgroundColor: getBadgeColor(latestUpdate.badge) }]}>
+              <Text style={styles.updateBadgeText}>{badgeLabels[latestUpdate.badge]}</Text>
+            </View>
+            <Text style={styles.updateHeadline}>
+              {latestUpdate.headline}
+            </Text>
+            <Text style={styles.updateDescription}>
+              {latestUpdate.description}
+            </Text>
+            {latestUpdate.ctaUrl && latestUpdate.ctaLabel && (
+              <Pressable
+                style={styles.helpButton}
+                onPress={() => Linking.openURL(latestUpdate.ctaUrl!)}
+              >
+                <Text style={styles.helpButtonText}>{latestUpdate.ctaLabel}</Text>
+              </Pressable>
+            )}
+          </View>
+        ) : null}
       </ScrollView>
 
       {/* Gift modal */}

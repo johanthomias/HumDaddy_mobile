@@ -71,7 +71,8 @@ mobile-app/
 │   │       ├── uploadApi.ts        # Service Upload (avatar, banner, gift media)
 │   │       ├── giftApi.ts          # Service Gift (CRUD cadeaux)
 │   │       ├── stripeConnectApi.ts # Service Stripe Connect
-│   │       └── walletApi.ts        # Service Wallet (summary, activity, payout)
+│   │       ├── walletApi.ts        # Service Wallet (summary, activity, payout)
+│   │       └── updatesApi.ts       # Service Updates (actualités publiques)
 │   ├── theme/
 │   │   └── colors.ts               # Palette de couleurs centralisée
 │   └── types/
@@ -964,7 +965,7 @@ uploadApi.uploadGiftMedia(giftId, asset): Promise<{ url, pathname }>
 - index.ts : exports giftApi
 
 **Mobile - Écrans** :
-- GiftsListScreen.tsx : liste grille avec badge acheté
+- GiftsListScreen.tsx : liste grille avec badge achetépp
 - CreateGiftPhotosScreen.tsx : wizard step 1 (photos)
 - CreateGiftInfoScreen.tsx : wizard step 2 (infos)
 - GiftDetailScreen.tsx : détail + suppression
@@ -2339,4 +2340,60 @@ interface Supporter {
 
 ---
 
-**FIN DE L'ÉTAPE CORRECTION**
+### 2026-01-25 - Feature "Latest Updates / Actualités" Complétée
+
+**Backend - Modèle Update** :
+- Création du modèle `Update` (update.model.js) avec champs : title, badge, headline, description, ctaLabel, ctaUrl, isPublished, publishedAt, startsAt, endsAt, priority, isDeleted
+- Badges disponibles : news, update, maintenance, security
+- Index sur isPublished, priority, publishedAt
+
+**Backend - Endpoints publics** :
+- `GET /v1/public/updates?limit=3` - Récupère les actualités publiées et actives
+- Route publique sans authentification
+- Filtre automatique par startsAt/endsAt pour fenêtres d'affichage
+
+**Backend - Endpoints admin CRUD** :
+- `GET /v1/admin/panel/updates` - Liste avec filtres (query, status, badge)
+- `GET /v1/admin/panel/updates/:id` - Détail
+- `POST /v1/admin/panel/updates` - Création (brouillon)
+- `PUT /v1/admin/panel/updates/:id` - Modification
+- `POST /v1/admin/panel/updates/:id/publish` - Publication
+- `POST /v1/admin/panel/updates/:id/unpublish` - Dépublication
+- `DELETE /v1/admin/panel/updates/:id` - Suppression (soft delete)
+- Audit log pour toutes les actions : UPDATE_CREATE, UPDATE_EDIT, UPDATE_PUBLISH, UPDATE_UNPUBLISH, UPDATE_DELETE
+
+**Web Admin - Page Actualités** :
+- Entrée "Actualités" dans la sidebar avec icône Megaphone
+- Page `/admin/updates` avec table paginée
+- Filtres : recherche par titre, statut (publié/brouillon), badge
+- Actions : éditer, publier/dépublier, supprimer
+- Drawer de création/édition avec tous les champs
+
+**Mobile - API Updates** :
+- `updatesApi.ts` avec méthode `listPublicUpdates(limit)`
+- Export dans index.ts avec type Update et badgeLabels
+
+**Mobile - HomeScreen** :
+- Section "Latest updates" dynamique
+- Affiche la dernière actualité publiée
+- Badge coloré selon type (news=bleu, update=vert, maintenance=orange, security=rouge)
+- Bouton CTA optionnel avec Linking.openURL
+
+**Fichiers créés/modifiés** :
+- `backend-api/src/models/update.model.js` - Nouveau
+- `backend-api/src/models/auditLog.model.js` - Actions UPDATE_* ajoutées
+- `backend-api/src/routes/v1/public.routes.js` - Nouveau
+- `backend-api/src/routes/v1/index.js` - Import public routes
+- `backend-api/src/routes/v1/adminPanel.routes.js` - Routes updates
+- `backend-api/src/services/admin.service.js` - Fonctions CRUD updates
+- `backend-api/src/controllers/adminPanel.controller.js` - Controllers updates
+- `web-app/src/lib/api/adminApi.ts` - Interface Update + méthodes API
+- `web-app/src/components/admin/AdminSidebar.tsx` - Entrée Actualités
+- `web-app/src/app/admin/updates/page.tsx` - Nouveau
+- `mobile-app/src/services/api/updatesApi.ts` - Nouveau
+- `mobile-app/src/services/api/index.ts` - Export updatesApi
+- `mobile-app/src/screens/app/HomeScreen.tsx` - Section updates dynamique
+
+---
+
+**FIN DE L'ÉTAPE LATEST UPDATES**
