@@ -43,9 +43,9 @@ export default function LinkScreen({ navigation }: Props) {
     >
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Image
-          source={require('../../assets/link.png')}
+          source={require('../../assets/logo/logo_humdaddy.webp')}
           style={styles.heroImage}
-          resizeMode="cover"
+          resizeMode="center"
         />
 
         <Text style={styles.title}>{t('auth.link.title')}</Text>
@@ -97,15 +97,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   content: {
+    flexGrow: 1,
+    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingTop: 24,
-    paddingBottom: 40,
+    paddingVertical: 40,
   },
   heroImage: {
     width: '100%',
-    height: 240,
+    height: 280,
     borderRadius: 20,
-    marginBottom: 24,
+    marginBottom: 32,
   },
   title: {
     fontSize: 32,

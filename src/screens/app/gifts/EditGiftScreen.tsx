@@ -95,7 +95,7 @@ export default function EditGiftScreen({ navigation, route }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size={48} color="#7C3AED" />
+        <ActivityIndicator size={48} color="#FD3DB5" />
       </View>
     );
   }
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   saveButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

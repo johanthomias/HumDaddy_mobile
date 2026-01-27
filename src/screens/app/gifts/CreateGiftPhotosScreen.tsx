@@ -92,7 +92,7 @@ export default function CreateGiftPhotosScreen({ navigation }: Props) {
   if (checkingLimit) {
     return (
       <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#7C3AED" />
+        <ActivityIndicator size="large" color="#FD3DB5" />
       </View>
     );
   }
@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 8,
     left: 8,
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 4,
     paddingHorizontal: 8,
     borderRadius: 8,
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   continueButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

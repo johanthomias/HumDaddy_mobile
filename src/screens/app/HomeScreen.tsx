@@ -214,7 +214,11 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.logo}>HumDaddy</Text>
+        <Image
+          source={require('../../assets/logo/logo_humdaddy_long.webp')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Pressable style={styles.addButton} onPress={handleOpenGiftModal}>
           <Text style={styles.addButtonText}>+ {t('home.addGift')}</Text>
         </Pressable>
@@ -469,12 +473,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   logo: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: colors.text,
+    width: 140,
+    height: 36,
   },
   addButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -543,7 +546,7 @@ const styles = StyleSheet.create({
   },
   statsLinkText: {
     fontSize: 14,
-    color: '#7C3AED',
+    color: '#FD3DB5',
     textDecorationLine: 'underline',
   },
   recentGiftsCard: {
@@ -616,7 +619,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   helpButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 20,
@@ -754,7 +757,7 @@ const styles = StyleSheet.create({
   lastGiftPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#7C3AED',
+    color: '#FD3DB5',
   },
   purchasedBadge: {
     backgroundColor: '#10B981',

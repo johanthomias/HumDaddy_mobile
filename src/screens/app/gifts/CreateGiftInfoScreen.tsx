@@ -167,7 +167,7 @@ export default function CreateGiftInfoScreen({ navigation, route }: Props) {
 
         {uploadStatus ? (
           <View style={styles.statusContainer}>
-            <ActivityIndicator size={20} color="#7C3AED" />
+            <ActivityIndicator size={20} color="#FD3DB5" />
             <Text style={styles.statusText}>{uploadStatus}</Text>
           </View>
         ) : null}
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   createButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

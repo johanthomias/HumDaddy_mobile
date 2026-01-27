@@ -44,7 +44,7 @@ export default function OnboardingScreen({ navigation }: Props) {
       title: t('onboarding.slide2.title'),
       subtitle: t('onboarding.slide2.subtitle'),
       label: t('onboarding.slide2.label'),
-      gradientColors: ['#7C3AED', '#0A1628'] as const,
+      gradientColors: ['#FD3DB5', '#0A1628'] as const,
     },
     {
       id: '3',

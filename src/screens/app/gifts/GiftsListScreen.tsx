@@ -120,7 +120,7 @@ export default function GiftsListScreen({ navigation }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size={48} color="#7C3AED" />
+        <ActivityIndicator size={48} color="#FD3DB5" />
       </View>
     );
   }
@@ -155,7 +155,7 @@ export default function GiftsListScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={isRefreshing}
               onRefresh={handleRefresh}
-              tintColor="#7C3AED"
+              tintColor="#FD3DB5"
             />
           }
         />
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   addButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 10,
     paddingHorizontal: 16,
     borderRadius: 10,
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   giftPrice: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#7C3AED',
+    color: '#FD3DB5',
   },
   donorText: {
     fontSize: 12,
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 14,
     paddingHorizontal: 24,
     borderRadius: 12,

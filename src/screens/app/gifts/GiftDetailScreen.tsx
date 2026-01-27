@@ -123,7 +123,7 @@ export default function GiftDetailScreen({ navigation, route }: Props) {
   if (isLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size={48} color="#7C3AED" />
+        <ActivityIndicator size={48} color="#FD3DB5" />
       </View>
     );
   }
@@ -360,7 +360,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   statusBadgeActive: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
   },
   statusBadgeText: {
     color: colors.text,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   giftPrice: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#7C3AED',
+    color: '#FD3DB5',
   },
   descriptionSection: {
     marginBottom: 24,
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   },
   linkText: {
     fontSize: 14,
-    color: '#7C3AED',
+    color: '#FD3DB5',
   },
   donorSection: {
     marginBottom: 24,
@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   editButton: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: '#FD3DB5',
     paddingVertical: 16,
     alignItems: 'center',
     borderRadius: 12,
