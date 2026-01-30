@@ -299,6 +299,11 @@ export const en = {
       payout: 'Withdrawal',
       fee: 'fee',
       from: 'From: {{name}}',
+      payoutStatus: {
+        processing: 'Processing',
+        paid: 'Sent',
+        failed: 'Failed',
+      },
     },
     transactions: {
       title: 'Transactions',

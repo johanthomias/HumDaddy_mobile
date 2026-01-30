@@ -11,6 +11,8 @@ import {
   ActivityIndicator,
   FlatList,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -73,7 +75,6 @@ export default function WalletScreen({ navigation }: Props) {
         walletApi.listActivity({ limit: 20 }),
         stripeConnectApi.getStatus().catch(() => null),
       ]);
-console.log("1 :", summaryData, "2 :", activityData)
       setSummary(summaryData);
       setActivity(activityData.items);
       setNextCursor(activityData.nextCursor);
@@ -172,11 +173,28 @@ console.log("1 :", summaryData, "2 :", activityData)
     }
   };
 
+  const getPayoutStatusInfo = (status: string) => {
+    switch (status) {
+      case 'processing':
+      case 'pending':
+        return { label: t('wallet.history.payoutStatus.processing'), color: '#f59e0b' };
+      case 'paid':
+        return { label: t('wallet.history.payoutStatus.paid'), color: '#22c55e' };
+      case 'failed':
+      case 'canceled':
+        return { label: t('wallet.history.payoutStatus.failed'), color: '#ef4444' };
+      default:
+        return { label: status, color: '#6b7280' };
+    }
+  };
+
   const renderActivityItem = ({ item }: { item: WalletActivityItem }) => {
     const isReceived = item.type === 'received';
+    const isPayout = item.type === 'payout';
     const iconName = isReceived ? 'arrow-down-circle' : 'arrow-up-circle';
     const iconColor = isReceived ? '#22c55e' : '#ef4444';
     const amountColor = isReceived ? '#22c55e' : '#ef4444';
+    const payoutStatus = isPayout ? getPayoutStatusInfo(item.status) : null;
 
     return (
       <Pressable
@@ -196,6 +214,11 @@ console.log("1 :", summaryData, "2 :", activityData)
           <Text style={styles.activityDate}>{formatDate(item.date)}</Text>
           {item.donor?.pseudo && (
             <Text style={styles.activityDonor}>{t('wallet.history.from', { name: item.donor.pseudo })}</Text>
+          )}
+          {isPayout && payoutStatus && (
+            <Text style={[styles.payoutStatus, { color: payoutStatus.color }]}>
+              {payoutStatus.label}
+            </Text>
           )}
         </View>
         <View style={styles.activityAmount}>
@@ -327,11 +350,14 @@ console.log("1 :", summaryData, "2 :", activityData)
       {/* Modal Retrait */}
       <Modal
         visible={payoutModalVisible}
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         onRequestClose={() => setPayoutModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('wallet.withdraw.modal.title')}</Text>
@@ -374,7 +400,7 @@ console.log("1 :", summaryData, "2 :", activityData)
               )}
             </Pressable>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -543,6 +569,11 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 2,
   },
+  payoutStatus: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 4,
+  },
   activityAmount: {
     alignItems: 'flex-end',
   },
@@ -565,14 +596,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-start',
+    paddingTop: 80,
   },
   modalContent: {
     backgroundColor: colors.primary,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 24,
+    marginHorizontal: 16,
     padding: 24,
-    paddingBottom: 40,
+    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: 'row',

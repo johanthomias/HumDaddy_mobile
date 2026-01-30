@@ -302,6 +302,11 @@ export const fr = {
       payout: 'Retrait',
       fee: 'frais',
       from: 'De : {{name}}',
+      payoutStatus: {
+        processing: 'En cours de traitement',
+        paid: 'Envoyé',
+        failed: 'Échec',
+      },
     },
     transactions: {
       title: 'Transactions',

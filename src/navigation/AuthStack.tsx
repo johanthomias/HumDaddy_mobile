@@ -46,7 +46,7 @@ export default function AuthStack() {
       screenOptions={{
         headerShown: false,
       }}
-      initialRouteName={hasSeenOnboarding ? 'Link' : 'Onboarding'}
+      initialRouteName={hasSeenOnboarding ? 'Onboarding' : 'Onboarding'}
     >
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
       <Stack.Screen name="Link" component={LinkScreen} />
